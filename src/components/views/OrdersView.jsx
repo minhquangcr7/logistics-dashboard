@@ -1,24 +1,93 @@
 "use client";
 
-import { useState } from "react";
-import { FILTERS } from "@/lib/data";
+import { useState, useMemo, Fragment } from "react";
+import { FILTERS, slaStatus, vehicleIcon, computeDelayStats } from "@/lib/data";
 import StatusPill from "@/components/StatusPill";
+
+const COLUMNS = [
+  { key: "id", label: "Mã đơn" },
+  { key: "customer", label: "Khách hàng" },
+  { key: "route", label: "Tuyến" },
+  { key: "status", label: "Trạng thái" },
+  { key: "deadline", label: "Dự kiến giao" },
+  { key: "location", label: "Vị trí hiện tại" },
+  { key: "updated", label: "Cập nhật" },
+];
 
 export default function OrdersView({ orders }) {
   const [filter, setFilter] = useState("all");
+  const [search, setSearch] = useState("");
+  const [sortKey, setSortKey] = useState("updated");
+  const [sortDir, setSortDir] = useState("desc");
+  const [openRow, setOpenRow] = useState(null);
 
-  const shipping = ["pickup", "transit", "delivering"];
-  const filtered = orders.filter((o) => {
-    if (filter === "all") return true;
-    if (filter === "transit") return o.status === "transit";
-    if (filter === "delivering") return o.status === "delivering";
-    if (filter === "done") return o.status === "done";
-    if (filter === "late") return o.status === "late";
-    return true;
-  });
+  const delayStats = useMemo(() => computeDelayStats(orders), [orders]);
+
+  const filtered = useMemo(() => {
+    let list = orders.filter((o) => {
+      if (filter !== "all" && o.status !== filter) return false;
+      if (search) {
+        const q = search.toLowerCase();
+        return (
+          o.id.toLowerCase().includes(q) || o.customer.toLowerCase().includes(q)
+        );
+      }
+      return true;
+    });
+
+    list = [...list].sort((a, b) => {
+      let av = a[sortKey];
+      let bv = b[sortKey];
+      if (sortKey === "updated") {
+        av = a.deadline;
+        bv = b.deadline;
+      }
+      if (typeof av === "string") av = av.toLowerCase();
+      if (typeof bv === "string") bv = bv.toLowerCase();
+      if (av < bv) return sortDir === "asc" ? -1 : 1;
+      if (av > bv) return sortDir === "asc" ? 1 : -1;
+      return 0;
+    });
+
+    return list;
+  }, [orders, filter, search, sortKey, sortDir]);
+
+  function toggleSort(key) {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir("desc");
+    }
+  }
 
   return (
     <div className="view">
+      {delayStats.length > 0 && (
+        <div className="panel">
+          <div className="panel-head">
+            <h3>
+              Thống kê nguyên nhân trễ hạn (
+              {delayStats.reduce((s, d) => s + d.count, 0)} đơn)
+            </h3>
+          </div>
+          <div className="delay-stats">
+            {delayStats.map((d) => (
+              <div className="delay-stat-row" key={d.category}>
+                <span className="delay-stat-label">{d.label}</span>
+                <div className="delay-stat-bar-wrap">
+                  <div
+                    className="delay-stat-bar"
+                    style={{ width: `${d.pct}%`, background: d.color }}
+                  />
+                </div>
+                <span className="delay-stat-pct">{d.pct}%</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="filter-row">
         {FILTERS.map((f) => (
           <button
@@ -29,6 +98,13 @@ export default function OrdersView({ orders }) {
             {f.label}
           </button>
         ))}
+        <input
+          className="search-box"
+          type="text"
+          placeholder="Tìm theo mã đơn hoặc tên khách hàng..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
         <span className="filter-count">{filtered.length} đơn</span>
       </div>
 
@@ -41,29 +117,67 @@ export default function OrdersView({ orders }) {
           <table className="table">
             <thead>
               <tr>
-                <th>Mã đơn</th>
-                <th>Khách hàng</th>
-                <th>Tuyến</th>
-                <th>Trạng thái</th>
-                <th>Vị trí hiện tại</th>
-                <th>Cập nhật</th>
+                <th></th>
+                {COLUMNS.map((c) => (
+                  <th
+                    key={c.key}
+                    className="sortable-th"
+                    onClick={() => toggleSort(c.key)}
+                  >
+                    {c.label}{" "}
+                    {sortKey === c.key && (sortDir === "asc" ? "▲" : "▼")}
+                  </th>
+                ))}
+                <th>Loại</th>
               </tr>
             </thead>
             <tbody>
-              {filtered.map((o) => (
-                <tr key={o.id}>
-                  <td className="mono">{o.id}</td>
-                  <td>{o.customer}</td>
-                  <td>{o.route}</td>
-                  <td><StatusPill status={o.status} /></td>
-                  <td>{o.location}</td>
-                  <td className="muted">{o.updated}</td>
-                </tr>
-              ))}
+              {filtered.map((o) => {
+                const sla = slaStatus(o);
+                const isOpen = openRow === o.id;
+                const clickable = o.status === "late";
+                return (
+                  <Fragment key={o.id}>
+                    <tr
+                      className={clickable ? "row-clickable" : ""}
+                      onClick={() => clickable && setOpenRow(isOpen ? null : o.id)}
+                    >
+                      <td className="expand-cell">{clickable ? (isOpen ? "▾" : "▸") : ""}</td>
+                      <td className="mono">{o.id}</td>
+                      <td>{o.customer}</td>
+                      <td>{o.route}</td>
+                      <td>
+                        <StatusPill status={o.status} />
+                        {clickable && <span className="info-dot">ⓘ</span>}
+                      </td>
+                      <td>
+                        {sla.deadlineText}
+                        {sla.level !== "none" && (
+                          <div className={`sla-text sla-${sla.level}`}>{sla.text}</div>
+                        )}
+                      </td>
+                      <td>{o.location}</td>
+                      <td className="muted">{o.updated}</td>
+                      <td className="vehicle-cell">{vehicleIcon(o.status)}</td>
+                    </tr>
+                    {isOpen && (
+                      <tr className="detail-row">
+                        <td colSpan={9}>
+                          <div className="delay-detail">
+                            <strong>Lý do trễ:</strong> {o.delayReason}
+                            <br />
+                            <strong>Dự kiến giao lại:</strong> {o.delayEta}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                );
+              })}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="muted center">
-                    Không có đơn nào ở trạng thái này.
+                  <td colSpan={9} className="muted center">
+                    Không có đơn nào khớp bộ lọc/tìm kiếm.
                   </td>
                 </tr>
               )}

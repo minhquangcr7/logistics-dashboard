@@ -554,7 +554,7 @@ a {
   width: 100%;
   border-collapse: collapse;
   font-size: 13.5px;
-  min-width: 480px;
+  min-width: 760px;
 }
 .table th {
   text-align: left;
@@ -814,30 +814,155 @@ a {
 }
 
 /* ============================================================
-   BÁO CÁO
+   LEAFLET MAP
    ============================================================ */
-.report {
-  max-width: 820px;
+.map-skeleton {
+  height: 280px;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  background: var(--panel-2);
+  border-radius: 12px;
+  font-size: 13px;
 }
-.report-block {
+.leaflet-map-el { background: var(--panel-2); }
+:global(.leaflet-popup-content-wrapper),
+.leaflet-popup-content-wrapper {
+  background: var(--panel-2);
+  color: var(--text);
+  border-radius: 8px;
+}
+.leaflet-popup-tip { background: var(--panel-2); }
+
+/* ============================================================
+   AI DECISION SUPPORT
+   ============================================================ */
+.ai-card { border-color: rgba(245, 165, 36, 0.3); }
+.ai-alerts {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.ai-alert {
+  display: flex;
+  gap: 12px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--red);
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+.ai-alert.applied {
+  border-left-color: var(--green);
+  opacity: 0.75;
+}
+.ai-alert-icon { font-size: 18px; flex-shrink: 0; }
+.ai-alert-title { font-weight: 700; font-size: 14px; margin-bottom: 4px; }
+.ai-alert-suggestion { font-size: 13px; color: var(--accent); margin-bottom: 8px; }
+.ai-alert-detail {
+  font-size: 12.5px;
+  color: var(--muted);
+  background: var(--panel);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+}
+.ai-alert-actions { display: flex; gap: 10px; align-items: center; }
+.apply-btn { font-size: 12px; padding: 5px 12px; }
+.apply-btn:disabled { color: var(--green); border-color: var(--green); opacity: 1; cursor: default; }
+
+/* ============================================================
+   ĐƠN HÀNG — search, sort, SLA, delay stats, vehicle icon
+   ============================================================ */
+.search-box {
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: var(--radius);
-  padding: 20px 24px;
-  margin-bottom: 16px;
+  color: var(--text);
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  min-width: 220px;
+  outline: none;
 }
-.report-block h3 {
-  margin: 0 0 10px;
+.search-box:focus { border-color: var(--accent); }
+
+.sortable-th { cursor: pointer; user-select: none; white-space: nowrap; }
+.sortable-th:hover { color: var(--text); }
+
+.row-clickable { cursor: pointer; }
+.expand-cell { width: 18px; color: var(--muted); text-align: center; }
+.info-dot { margin-left: 6px; color: var(--red); font-size: 11px; cursor: pointer; }
+.detail-row td { background: var(--panel-2); padding: 12px 16px; }
+.delay-detail { font-size: 13px; line-height: 1.7; }
+
+.sla-text { font-size: 11px; margin-top: 2px; font-weight: 600; }
+.sla-ok { color: var(--muted); }
+.sla-soon { color: var(--accent); }
+.sla-over { color: var(--red); }
+
+.vehicle-cell { text-align: center; font-size: 16px; }
+
+.delay-stats { display: flex; flex-direction: column; gap: 10px; }
+.delay-stat-row { display: grid; grid-template-columns: 150px 1fr 40px; align-items: center; gap: 12px; }
+.delay-stat-label { font-size: 13px; color: var(--muted); }
+.delay-stat-bar-wrap { background: var(--panel-2); border-radius: 999px; height: 10px; overflow: hidden; }
+.delay-stat-bar { height: 100%; border-radius: 999px; }
+.delay-stat-pct { font-size: 12px; font-weight: 700; text-align: right; }
+
+/* ============================================================
+   ĐỊNH TUYẾN AI — chọn hub, chi phí, lộ trình, timeline
+   ============================================================ */
+.routing-picked {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  color: var(--muted);
+  margin: 14px 0;
+}
+.route-cost {
   font-size: 16px;
-  color: var(--accent);
+  font-weight: 700;
+  margin-top: 10px;
 }
-.report-block p { margin: 0 0 10px; }
-.report-block ul { margin: 0; padding-left: 20px; }
-.report-block li { margin-bottom: 8px; }
-.src-inline {
+.route-path {
   font-size: 12px;
   color: var(--muted);
+  margin-top: 8px;
+  line-height: 1.5;
 }
+.cargo-note {
+  font-size: 12px;
+  color: var(--accent);
+  margin-top: 10px;
+  font-style: italic;
+}
+.benefit-list {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0 0;
+  font-size: 12.5px;
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.timeline-title { font-size: 13px; font-weight: 700; margin-bottom: 12px; }
+.timeline { display: flex; flex-direction: column; }
+.timeline-item { position: relative; padding-left: 22px; padding-bottom: 18px; }
+.timeline-item:last-child { padding-bottom: 0; }
+.timeline-dot {
+  position: absolute; left: 0; top: 4px;
+  width: 10px; height: 10px; border-radius: 50%;
+}
+.timeline-line {
+  position: absolute; left: 4px; top: 14px; bottom: -4px;
+  width: 2px; background: var(--line);
+}
+.timeline-content { font-size: 13px; color: var(--text); }
+.timeline-time { font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
 
 /* ============================================================
    MOBILE

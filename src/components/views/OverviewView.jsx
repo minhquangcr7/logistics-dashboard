@@ -1,11 +1,30 @@
-import { computeKpis, BEFORE_AFTER, EXTRA_METRIC, SOURCES } from "@/lib/data";
+"use client";
+
+import { useMemo } from "react";
+import dynamic from "next/dynamic";
+import {
+  computeKpis,
+  countByHub,
+  generateAiAlerts,
+  BEFORE_AFTER,
+  EXTRA_METRIC,
+  SOURCES,
+  HUBS,
+} from "@/lib/data";
 import StatusPill from "@/components/StatusPill";
-import MiniMap from "@/components/MiniMap";
 import BeforeAfterChart from "@/components/BeforeAfterChart";
+import AiDecisionCard from "@/components/AiDecisionCard";
+
+const LeafletMap = dynamic(() => import("@/components/LeafletMap"), {
+  ssr: false,
+  loading: () => <div className="map-skeleton">Đang tải bản đồ…</div>,
+});
 
 export default function OverviewView({ orders }) {
   const kpi = computeKpis(orders);
   const recent = orders.slice(0, 6);
+  const hubCounts = useMemo(() => countByHub(orders), [orders]);
+  const alerts = useMemo(() => generateAiAlerts(orders), [orders]);
 
   const cards = [
     { label: "Tổng đơn hôm nay", value: kpi.total, sub: "+12% so với hôm qua", tone: "blue" },
@@ -25,45 +44,6 @@ export default function OverviewView({ orders }) {
             <div className="kpi-sub">{c.sub}</div>
           </div>
         ))}
-      </div>
-
-      {/* Bảng đơn gần đây + mini map */}
-      <div className="grid-2">
-        <div className="panel">
-          <div className="panel-head">
-            <h3>Đơn hàng gần đây</h3>
-            <span className="live-dot">● live</span>
-          </div>
-          <div className="table-scroll">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Mã đơn</th>
-                  <th>Trạng thái</th>
-                  <th>Vị trí hiện tại</th>
-                  <th>Cập nhật</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recent.map((o) => (
-                  <tr key={o.id}>
-                    <td className="mono">{o.id}</td>
-                    <td><StatusPill status={o.status} /></td>
-                    <td>{o.location}</td>
-                    <td className="muted">{o.updated}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div className="panel">
-          <div className="panel-head">
-            <h3>Sơ đồ tuyến vận chuyển</h3>
-          </div>
-          <MiniMap />
-        </div>
       </div>
 
       {/* So sánh trước / sau chuyển đổi số */}
@@ -116,6 +96,51 @@ export default function OverviewView({ orders }) {
           100% để thể hiện tỷ lệ thay đổi, không phải số liệu tuyệt đối do Viettel
           Post cung cấp.
         </p>
+      </div>
+
+      {/* AI Decision Support */}
+      <AiDecisionCard alerts={alerts} />
+
+      {/* Bảng đơn gần đây + bản đồ */}
+      <div className="grid-2">
+        <div className="panel">
+          <div className="panel-head">
+            <h3>Đơn hàng gần đây</h3>
+            <span className="live-dot">● live</span>
+          </div>
+          <div className="table-scroll">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Mã đơn</th>
+                  <th>Trạng thái</th>
+                  <th>Vị trí hiện tại</th>
+                  <th>Cập nhật</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recent.map((o) => (
+                  <tr key={o.id}>
+                    <td className="mono">{o.id}</td>
+                    <td><StatusPill status={o.status} /></td>
+                    <td>{o.location}</td>
+                    <td className="muted">{o.updated}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className="panel">
+          <div className="panel-head">
+            <h3>Bản đồ tuyến vận chuyển</h3>
+          </div>
+          <LeafletMap hubs={HUBS} hubCounts={hubCounts} height={280} />
+          <p className="map-note">
+            Vị trí hub là tọa độ thật; lưu lượng và tuyến vận chuyển mang tính minh họa.
+          </p>
+        </div>
       </div>
     </div>
   );

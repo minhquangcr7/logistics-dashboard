@@ -5,7 +5,6 @@ import { generateOrders, advanceOneOrder } from "@/lib/data";
 import OverviewView from "@/components/views/OverviewView";
 import OrdersView from "@/components/views/OrdersView";
 import RoutingView from "@/components/views/RoutingView";
-import ReportView from "@/components/views/ReportView";
 
 const TABS = [
   {
@@ -28,13 +27,6 @@ const TABS = [
     icon: "◈",
     title: "Định tuyến AI",
     subtitle: "So sánh tuyến truyền thống và tuyến tối ưu bởi AI",
-  },
-  {
-    key: "report",
-    label: "Báo cáo",
-    icon: "▣",
-    title: "Báo cáo & Đánh giá",
-    subtitle: "Phân tích chuyển đổi số Viettel Post — số liệu có trích nguồn",
   },
 ];
 
@@ -151,7 +143,6 @@ export default function Dashboard({ displayName, role, email }) {
           {active === "overview" && <OverviewView orders={orders} />}
           {active === "orders" && <OrdersView orders={orders} />}
           {active === "routing" && <RoutingView />}
-          {active === "report" && <ReportView />}
         </main>
       </div>
 

@@ -1,0 +1,440 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Hướng dẫn toàn tập — Dashboard Chuyển đổi số Logistics</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --panel: #161d29;
+    --panel-2: #1b2432;
+    --line: #26303f;
+    --text: #e6edf3;
+    --muted: #8b98a9;
+    --accent: #f5a524;
+    --accent-soft: rgba(245, 165, 36, 0.14);
+    --blue: #388bfd;
+    --red: #f85149;
+    --green: #3fb950;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg); color: var(--text);
+    font-family: "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif;
+    line-height: 1.65; font-size: 16px;
+  }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 40px 24px 80px; }
+  header.hero {
+    text-align: center; padding: 40px 20px 32px;
+    border-bottom: 1px solid var(--line); margin-bottom: 32px;
+  }
+  header.hero .kicker {
+    font-size: 12px; letter-spacing: 3px; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 10px;
+  }
+  header.hero h1 { margin: 0; font-size: 28px; }
+  header.hero p { color: var(--muted); margin-top: 10px; font-size: 15px; }
+
+  .note {
+    background: var(--accent-soft); border: 1px solid rgba(245,165,36,0.35);
+    border-radius: 12px; padding: 16px 18px; margin: 20px 0; font-size: 14.5px;
+  }
+  .note.warn { background: rgba(248,81,73,0.1); border-color: rgba(248,81,73,0.35); }
+
+  nav.toc {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+    padding: 20px 24px; margin-bottom: 36px;
+  }
+  nav.toc h2 { margin: 0 0 12px; font-size: 15px; color: var(--accent); }
+  nav.toc ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 24px; }
+  nav.toc li { margin-bottom: 6px; font-size: 14px; }
+  nav.toc a { color: var(--text); text-decoration: none; }
+  nav.toc a:hover { color: var(--accent); }
+
+  section {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+    padding: 26px 28px; margin-bottom: 20px; scroll-margin-top: 20px;
+  }
+  section h2 {
+    margin: 0 0 16px; font-size: 20px; color: var(--accent);
+    display: flex; align-items: center; gap: 10px;
+  }
+  section h2 .num {
+    width: 30px; height: 30px; border-radius: 8px; background: var(--accent-soft);
+    color: var(--accent); display: inline-flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 700; flex-shrink: 0;
+  }
+  section h3 { font-size: 16px; margin: 22px 0 10px; color: var(--text); }
+  section h3:first-of-type { margin-top: 4px; }
+
+  p { margin: 10px 0; }
+  ul, ol { padding-left: 22px; }
+  li { margin-bottom: 6px; }
+  strong { color: #fff; }
+  code {
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: 5px;
+    padding: 2px 6px; font-family: "Consolas", "SF Mono", monospace; font-size: 13.5px;
+    color: #ffd479;
+  }
+  pre {
+    background: #0a0e14; border: 1px solid var(--line); border-radius: 10px;
+    padding: 14px 16px; overflow-x: auto; font-size: 13.5px;
+  }
+  pre code { background: none; border: none; padding: 0; color: #c9d6e3; }
+  a { color: var(--accent); }
+
+  table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 14px; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+  tr:hover td { background: var(--panel-2); }
+
+  .step-badge {
+    display: inline-block; background: var(--panel-2); border: 1px solid var(--line);
+    color: var(--muted); font-size: 12px; padding: 2px 9px; border-radius: 999px;
+    margin-bottom: 8px; font-weight: 600;
+  }
+
+  .status-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .status-card {
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px;
+    padding: 14px 16px; display: flex; align-items: center; gap: 10px;
+  }
+  .status-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
+
+  footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 40px; }
+
+  @media print {
+    body { background: #fff; color: #111; }
+    section, nav.toc { border-color: #ccc; background: #fff; }
+    a { color: #0645ad; }
+  }
+  @media (max-width: 640px) {
+    nav.toc ol { columns: 1; }
+    .status-grid { grid-template-columns: 1fr; }
+    section { padding: 20px 18px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <div class="kicker">Hướng dẫn toàn tập</div>
+    <h1>Dashboard Chuyển đổi số Logistics</h1>
+    <p>Case Study Viettel Post · Viết cho người <strong>chưa biết gì về lập trình/web</strong>.<br>
+       Đọc từ trên xuống, làm theo đúng thứ tự — đừng nhảy bước.</p>
+  </header>
+
+  <div class="note">
+    Project này <strong>đã được dựng và deploy xong 1 lần</strong> rồi — xem
+    <a href="#s12">mục 12 "Trạng thái hiện tại"</a>. File này giúp bạn hiểu toàn bộ hệ
+    thống hoạt động ra sao, và để làm lại từ đầu nếu cần (đổi tài khoản, tạo bản mới...).
+  </div>
+
+  <nav class="toc">
+    <h2>Mục lục</h2>
+    <ol>
+      <li><a href="#s0">Bức tranh tổng thể</a></li>
+      <li><a href="#s1">Chuẩn bị máy tính</a></li>
+      <li><a href="#s2">Tài khoản cần tạo</a></li>
+      <li><a href="#s3">Lấy code project về máy</a></li>
+      <li><a href="#s4">Dựng Supabase</a></li>
+      <li><a href="#s5">Bật đăng nhập Google</a></li>
+      <li><a href="#s6">Bật OTP email qua Brevo</a></li>
+      <li><a href="#s7">Khai báo URL cho Supabase</a></li>
+      <li><a href="#s8">Đưa code lên GitHub</a></li>
+      <li><a href="#s9">Deploy lên Vercel</a></li>
+      <li><a href="#s10">Kiểm tra hoạt động</a></li>
+      <li><a href="#s11">Lỗi thường gặp</a></li>
+      <li><a href="#s12">Trạng thái hiện tại</a></li>
+    </ol>
+  </nav>
+
+  <section id="s0">
+    <h2><span class="num">0</span>Bức tranh tổng thể — hệ thống gồm những mảnh nào?</h2>
+    <p>Một website hiện đại không nằm gọn trong 1 chỗ. Project này dùng <strong>4 dịch vụ</strong>, mỗi cái một vai trò:</p>
+    <table>
+      <thead><tr><th>Dịch vụ</th><th>Vai trò</th><th>Miễn phí?</th></tr></thead>
+      <tbody>
+        <tr><td><strong>GitHub</strong></td><td>Kho lưu trữ code (như Google Drive nhưng cho code, có lịch sử thay đổi)</td><td>Có</td></tr>
+        <tr><td><strong>Supabase</strong></td><td>"Bộ não" phía sau: database lưu tài khoản người dùng, xử lý đăng nhập (OTP + Google)</td><td>Có (gói Free)</td></tr>
+        <tr><td><strong>Vercel</strong></td><td>Nơi website thực sự "sống" — biến code thành trang web ai cũng truy cập được</td><td>Có (gói Hobby)</td></tr>
+        <tr><td><strong>Brevo</strong></td><td>Dịch vụ gửi email thật (để gửi mã OTP 6 số)</td><td>Có (300 email/ngày)</td></tr>
+        <tr><td><strong>Google Cloud Console</strong></td><td>Nơi đăng ký "Đăng nhập bằng Google" cho website</td><td>Có</td></tr>
+      </tbody>
+    </table>
+    <p>Luồng hoạt động: <strong>Code nằm trên GitHub → Vercel lấy code đó dựng thành
+    website → Website gọi tới Supabase mỗi khi cần đăng nhập/lưu dữ liệu → Supabase
+    gọi Brevo để gửi email OTP, và gọi Google để xác thực khi người dùng bấm "Đăng
+    nhập với Google".</strong></p>
+  </section>
+
+  <section id="s1">
+    <h2><span class="num">1</span>Chuẩn bị máy tính</h2>
+    <ol>
+      <li>Cài <strong>Node.js</strong> (bản LTS): <a href="https://nodejs.org" target="_blank">nodejs.org</a> — cứ Next, Next, Install, không cần tick gì đặc biệt.</li>
+      <li>Cài <strong>Git</strong>: <a href="https://git-scm.com/downloads" target="_blank">git-scm.com/downloads</a> — cứ Next mặc định.</li>
+      <li>Kiểm tra cài xong chưa: mở <strong>PowerShell</strong>, gõ:
+        <pre><code>node -v
+git --version</code></pre>
+        Thấy hiện số phiên bản (không phải lỗi "not recognized") là được.
+      </li>
+    </ol>
+  </section>
+
+  <section id="s2">
+    <h2><span class="num">2</span>Tài khoản cần tạo (theo đúng thứ tự)</h2>
+    <p>Nguyên tắc quan trọng: <strong>dùng 1 email của chính bạn xuyên suốt</strong> cho
+    tất cả (GitHub, Supabase, Vercel, Brevo, Google) để dễ quản lý và không bị lẫn với
+    tài khoản người khác.</p>
+
+    <h3>2.1 Tạo tài khoản GitHub</h3>
+    <ol>
+      <li>Vào <a href="https://github.com/signup" target="_blank">github.com/signup</a></li>
+      <li>Nhập email, đặt mật khẩu, đặt <strong>username</strong> (tên hiển thị, vd <code>nguyenvana123</code>) — nhớ kỹ vì dùng lại nhiều lần.</li>
+      <li>Xác nhận email nếu được yêu cầu.</li>
+    </ol>
+
+    <h3>2.2 Tạo tài khoản Supabase</h3>
+    <ol>
+      <li>Vào <a href="https://supabase.com" target="_blank">supabase.com</a> → <strong>Start your project</strong>.</li>
+      <li>Chọn <strong>Continue with GitHub</strong> → bấm Authorize.</li>
+      <li>Nếu lần đầu, Supabase sẽ hỏi tạo <strong>Organization</strong> — đặt tên tuỳ ý, chọn plan <strong>Free</strong>.</li>
+    </ol>
+
+    <h3>2.3 Tạo tài khoản Vercel</h3>
+    <ol>
+      <li>Vào <a href="https://vercel.com/signup" target="_blank">vercel.com/signup</a></li>
+      <li>Chọn <strong>Continue with GitHub</strong> → Authorize.</li>
+    </ol>
+
+    <h3>2.4 Tạo tài khoản Brevo (gửi email OTP thật)</h3>
+    <ol>
+      <li>Vào <a href="https://www.brevo.com" target="_blank">brevo.com</a> → <strong>Sign up free</strong>.</li>
+      <li>Đăng ký bằng email, đặt mật khẩu, xác nhận email.</li>
+      <li>Nếu được hỏi mục đích dùng, chọn đại loại "Transactional emails".</li>
+    </ol>
+
+    <h3>2.5 Tài khoản Google (cho nút "Đăng nhập với Google")</h3>
+    <p>Chỉ cần 1 tài khoản Gmail bình thường — sẽ tạo "OAuth Client" ở mục 5.</p>
+  </section>
+
+  <section id="s3">
+    <h2><span class="num">3</span>Lấy code project về máy</h2>
+    <p>Nếu code đã có sẵn trên GitHub, <strong>clone</strong> về:</p>
+    <pre><code>git clone https://github.com/&lt;username&gt;/logistics-dashboard.git
+cd logistics-dashboard
+npm install</code></pre>
+    <p>Nếu làm từ đầu hoàn toàn (chưa có code), cần nhờ AI/lập trình viên viết code
+    trước — phần này nằm ngoài phạm vi 1 file hướng dẫn setup.</p>
+  </section>
+
+  <section id="s4">
+    <h2><span class="num">4</span>Dựng Supabase (database + đăng nhập)</h2>
+
+    <h3>4.1 Tạo project</h3>
+    <ol>
+      <li>Vào <a href="https://supabase.com/dashboard" target="_blank">supabase.com/dashboard</a> → <strong>New project</strong>.</li>
+      <li>Chọn Organization vừa tạo → đặt tên project (vd <code>logistics-dashboard</code>).</li>
+      <li>Đặt 1 <strong>Database Password</strong> mạnh — <strong>lưu lại chỗ an toàn</strong>.</li>
+      <li>Region chọn <strong>Southeast Asia (Singapore)</strong> — gần Việt Nam nhất.</li>
+      <li>Bấm <strong>Create new project</strong>, đợi khoảng 1-2 phút.</li>
+    </ol>
+
+    <h3>4.2 Tạo bảng lưu thông tin người dùng</h3>
+    <ol>
+      <li>Menu trái → <strong>SQL Editor</strong> → <strong>New query</strong>.</li>
+      <li>Mở file <code>supabase/schema.sql</code> trong code project → copy toàn bộ → dán vào ô SQL Editor.</li>
+      <li>Bấm <strong>Run</strong> (hoặc Ctrl+Enter). Thấy chữ "Success" là xong.</li>
+      <li>Kiểm tra: vào <strong>Table Editor</strong>, sẽ thấy bảng tên <code>profiles</code>.</li>
+    </ol>
+
+    <h3>4.3 Lấy URL và anon key</h3>
+    <ol>
+      <li><strong>Project Settings</strong> (icon bánh răng) → <strong>API</strong>.</li>
+      <li>Copy 2 giá trị: <strong>Project URL</strong> (dạng <code>https://xxxxx.supabase.co</code>) và <strong>anon public</strong> key (chuỗi dài bắt đầu <code>eyJ...</code>).</li>
+      <li>Trong code project, mở/tạo file <code>.env.local</code>, điền:
+        <pre><code>NEXT_PUBLIC_SUPABASE_URL=https://xxxxx.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...</code></pre>
+      </li>
+    </ol>
+    <div class="note warn">
+      ⚠️ <strong>Không chia sẻ</strong> <code>service_role</code> key (khác với anon
+      key) cho bất kỳ ai — key đó có toàn quyền trên database. Chỉ dùng
+      <strong>anon</strong> key cho website.
+    </div>
+  </section>
+
+  <section id="s5">
+    <h2><span class="num">5</span>Bật đăng nhập Google thật</h2>
+
+    <h3>5.1 Tạo OAuth Client trên Google Cloud</h3>
+    <ol>
+      <li>Vào <a href="https://console.cloud.google.com" target="_blank">console.cloud.google.com</a></li>
+      <li>Góc trên, chọn project → <strong>New Project</strong> → đặt tên tuỳ ý → Create.</li>
+      <li>Tìm và mở <strong>"OAuth consent screen"</strong>.</li>
+      <li>Chọn <strong>External</strong> → điền <strong>App name</strong>, <strong>User support email</strong> → Save and Continue tới cuối.</li>
+      <li><strong>Credentials</strong> → <strong>Create Credentials</strong> → <strong>OAuth client ID</strong>.</li>
+      <li><strong>Application type</strong>: chọn <strong>Web application</strong>.</li>
+      <li><strong>Authorized JavaScript origins</strong> → thêm URL website (vd <code>https://ten-app.vercel.app</code>, hoặc tạm <code>http://localhost:3000</code>).</li>
+      <li><strong>Authorized redirect URIs</strong> → thêm:
+        <pre><code>https://&lt;project-ref-supabase&gt;.supabase.co/auth/v1/callback</code></pre>
+        (<code>&lt;project-ref-supabase&gt;</code> là phần trong Project URL ở bước 4.3.)
+      </li>
+      <li>Bấm <strong>Create</strong>. Copy lại <strong>Client ID</strong> và <strong>Client secret</strong> hiện ra (secret chỉ hiện 1 lần).</li>
+    </ol>
+
+    <h3>5.2 Dán vào Supabase</h3>
+    <ol>
+      <li><strong>Authentication</strong> → <strong>Providers</strong> → tìm <strong>Google</strong> → bật <strong>Enable Sign in with Google</strong>.</li>
+      <li>Dán <strong>Client ID</strong> và <strong>Client Secret</strong> → <strong>Save</strong>.</li>
+    </ol>
+  </section>
+
+  <section id="s6">
+    <h2><span class="num">6</span>Bật OTP 6 số qua email thật (dùng Brevo)</h2>
+    <p>Mặc định Supabase chỉ cho gửi khoảng 2-3 email/giờ, và <strong>không cho sửa
+    nội dung email</strong> trừ khi tự kết nối dịch vụ gửi email riêng (SMTP). Vì vậy
+    cần Brevo.</p>
+
+    <h3>6.1 Lấy thông tin SMTP từ Brevo</h3>
+    <ol>
+      <li>Đăng nhập <a href="https://app.brevo.com" target="_blank">app.brevo.com</a></li>
+      <li>Vào <strong>SMTP & API</strong> (Settings → SMTP & API).</li>
+      <li>Tab <strong>SMTP</strong>: ghi lại <strong>SMTP Server</strong> (<code>smtp-relay.brevo.com</code>), <strong>Port</strong> (<code>587</code>), <strong>Login</strong> (dạng <code>xxxxxxxxx@smtp-brevo.com</code>).</li>
+      <li>Mục <strong>SMTP Keys</strong>: bấm <strong>Generate a new SMTP key</strong> → copy giá trị (dạng <code>xsmtpsib-...</code>) — <strong>chỉ hiện 1 lần</strong>.</li>
+    </ol>
+
+    <h3>6.2 Cấu hình SMTP trong Supabase</h3>
+    <ol>
+      <li><strong>Project Settings</strong> → <strong>Authentication</strong> → mục <strong>SMTP Settings</strong>.</li>
+      <li>Bật <strong>Enable Custom SMTP</strong>.</li>
+      <li>Điền: Sender email (email đăng ký Brevo), Sender name, Host <code>smtp-relay.brevo.com</code>, Port <code>587</code>, Username &amp; Password lấy ở bước 6.1.</li>
+      <li><strong>Save</strong>.</li>
+    </ol>
+
+    <h3>6.3 Sửa email template để hiện mã 6 số (bắt buộc)</h3>
+    <p>Vào <strong>Authentication → Emails</strong>, sửa <strong>2 template</strong>
+    (vì Supabase dùng template khác nhau cho "đăng ký lần đầu" và "đăng nhập lần sau"):</p>
+    <p class="step-badge">Template "Confirm signup"</p>
+    <pre><code>&lt;h2&gt;Mã đăng nhập của bạn&lt;/h2&gt;
+&lt;p&gt;Nhập mã 6 số sau để đăng nhập:&lt;/p&gt;
+&lt;p style="font-size:28px;font-weight:bold;letter-spacing:4px"&gt;{{ .Token }}&lt;/p&gt;
+&lt;p&gt;Mã có hiệu lực trong ít phút.&lt;/p&gt;</code></pre>
+    <p class="step-badge">Template "Magic Link"</p>
+    <pre><code>&lt;h2&gt;Mã đăng nhập của bạn&lt;/h2&gt;
+&lt;p&gt;Nhập mã 6 số sau để đăng nhập:&lt;/p&gt;
+&lt;p style="font-size:28px;font-weight:bold;letter-spacing:4px"&gt;{{ .Token }}&lt;/p&gt;
+&lt;p&gt;Mã có hiệu lực trong ít phút.&lt;/p&gt;</code></pre>
+    <p>→ <strong>Save</strong> cả 2.</p>
+
+    <h3>6.4 Chỉnh độ dài mã OTP về 6 số</h3>
+    <p>Vào <strong>Authentication → Settings</strong>, tìm mục <strong>Email OTP
+    Length</strong> → đặt thành <strong>6</strong> (mặc định có thể là 8, sẽ lệch với
+    giao diện web chỉ có 6 ô nhập).</p>
+  </section>
+
+  <section id="s7">
+    <h2><span class="num">7</span>Khai báo URL cho Supabase biết web ở đâu</h2>
+    <p><strong>Authentication → URL Configuration</strong>:</p>
+    <ul>
+      <li><strong>Site URL</strong>: URL Vercel của bạn (vd <code>https://ten-app.vercel.app</code>)</li>
+      <li><strong>Redirect URLs</strong> → thêm:
+        <pre><code>https://ten-app.vercel.app/**
+http://localhost:3000/**</code></pre>
+      </li>
+    </ul>
+    <div class="note warn">Nếu bỏ qua bước này, đăng nhập Google sẽ bị lỗi redirect, và verify OTP có thể không hoạt động đúng.</div>
+  </section>
+
+  <section id="s8">
+    <h2><span class="num">8</span>Đưa code lên GitHub</h2>
+    <p>Mở PowerShell trong thư mục project:</p>
+    <pre><code>git init
+git add .
+git commit -m "Initial commit"</code></pre>
+    <ol>
+      <li>Vào <a href="https://github.com/new" target="_blank">github.com/new</a></li>
+      <li>Đặt tên repo (vd <code>logistics-dashboard</code>), chọn Public/Private tuỳ ý, <strong>không</strong> tick "Add README" → <strong>Create repository</strong>.</li>
+      <li>Copy đoạn lệnh GitHub hiện ra, dạng:
+        <pre><code>git remote add origin https://github.com/&lt;username&gt;/logistics-dashboard.git
+git branch -M main
+git push -u origin main</code></pre>
+        Dán vào PowerShell, Enter. Nếu được hỏi đăng nhập, đăng nhập qua trình duyệt hiện ra.
+      </li>
+    </ol>
+    <div class="note">File <code>.env.local</code> (chứa key Supabase) đã được cấu hình để <strong>không</strong> bị đẩy lên GitHub (xem file <code>.gitignore</code>) — đây là chủ đích, giữ key riêng tư.</div>
+  </section>
+
+  <section id="s9">
+    <h2><span class="num">9</span>Deploy lên Vercel</h2>
+    <ol>
+      <li>Vào <a href="https://vercel.com/new" target="_blank">vercel.com/new</a></li>
+      <li>Chọn <strong>Import</strong> cạnh repo <code>logistics-dashboard</code>.</li>
+      <li>Vercel tự nhận diện Next.js, không cần đổi Build Settings.</li>
+      <li>Mở mục <strong>Environment Variables</strong>, thêm đúng 2 biến (copy từ <code>.env.local</code>):
+        <table>
+          <thead><tr><th>Key</th><th>Value</th></tr></thead>
+          <tbody>
+            <tr><td><code>NEXT_PUBLIC_SUPABASE_URL</code></td><td>(URL Supabase của bạn)</td></tr>
+            <tr><td><code>NEXT_PUBLIC_SUPABASE_ANON_KEY</code></td><td>(anon key của bạn)</td></tr>
+          </tbody>
+        </table>
+      </li>
+      <li>Bấm <strong>Deploy</strong>, đợi 1-2 phút. Xong sẽ có link dạng <code>https://logistics-dashboard-xxxx.vercel.app</code>.</li>
+    </ol>
+    <div class="note">Quay lại <strong>bước 5.1</strong> và <strong>bước 7</strong>: cập nhật URL Vercel thật vào Google Console và Supabase — vì lúc đầu có thể bạn chưa có URL thật.</div>
+  </section>
+
+  <section id="s10">
+    <h2><span class="num">10</span>Kiểm tra hoạt động</h2>
+    <ol>
+      <li>Mở link Vercel → thấy trang <strong>Đăng nhập / Đăng ký</strong>.</li>
+      <li>Thử tab <strong>Đăng ký</strong>: điền Họ tên, Email, Vai trò → bấm <strong>Tạo tài khoản</strong>.</li>
+      <li>Kiểm tra hộp thư email (cả mục Spam) → có email chứa <strong>mã 6 số</strong>.</li>
+      <li>Nhập mã vào 6 ô trên web → bấm <strong>Xác nhận</strong> → vào Dashboard.</li>
+      <li>Thử nút <strong>Đăng nhập với Google</strong> → chọn tài khoản → tự động vào Dashboard.</li>
+      <li>Kiểm tra dữ liệu: Supabase → <strong>Table Editor</strong> → bảng <code>profiles</code> → thấy dòng mới.</li>
+    </ol>
+  </section>
+
+  <section id="s11">
+    <h2><span class="num">11</span>Các lỗi thường gặp</h2>
+    <table>
+      <thead><tr><th>Lỗi</th><th>Nguyên nhân</th><th>Cách sửa</th></tr></thead>
+      <tbody>
+        <tr><td>"email rate limit exceeded"</td><td>Gửi lại quá nhanh (giới hạn chống spam)</td><td>Đợi vài giây rồi thử lại; hoặc Supabase → Auth → Rate Limits tăng giới hạn</td></tr>
+        <tr><td>Email chỉ có link, không có mã 6 số</td><td>Chưa sửa hết <strong>cả 2</strong> template</td><td>Làm lại bước 6.3, sửa đủ "Confirm signup" <strong>và</strong> "Magic Link"</td></tr>
+        <tr><td>Nhập mã báo sai dù đúng</td><td>Độ dài OTP đang là 8 số nhưng web chỉ nhận 6 ô</td><td>Làm lại bước 6.4</td></tr>
+        <tr><td>Google báo "redirect_uri_mismatch"</td><td>URL trong Google Console sai</td><td>Kiểm tra lại bước 5.1, phải đúng y hệt <code>https://&lt;ref&gt;.supabase.co/auth/v1/callback</code></td></tr>
+        <tr><td>Đăng nhập xong bị đá về lại trang login</td><td>Site URL/Redirect URLs chưa khớp domain thật</td><td>Làm lại bước 7</td></tr>
+        <tr><td>Bảng <code>profiles</code> trống sau khi đăng ký</td><td>Chưa chạy <code>schema.sql</code></td><td>Làm lại bước 4.2</td></tr>
+        <tr><td>Google báo "app chưa xác minh"</td><td>OAuth consent screen đang ở chế độ Testing</td><td>Google Console → OAuth consent screen → Audience → Test users → thêm email đang test</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="s12">
+    <h2><span class="num">12</span>Trạng thái hiện tại của project này</h2>
+    <p>Đã setup thật, tham khảo:</p>
+    <div class="status-grid">
+      <div class="status-card"><span class="status-dot"></span> GitHub: repo đã tạo, code đã push</div>
+      <div class="status-card"><span class="status-dot"></span> Supabase: project + bảng <code>profiles</code> đã chạy</div>
+      <div class="status-card"><span class="status-dot"></span> Brevo SMTP: đã kết nối, OTP 6 số</div>
+      <div class="status-card"><span class="status-dot"></span> Google OAuth: đã bật</div>
+      <div class="status-card"><span class="status-dot"></span> Vercel: đã deploy, env vars đã set</div>
+    </div>
+    <div class="note warn" style="margin-top:20px">
+      Nếu cần lấy lại thông tin (Project URL, Client ID...) để cấu hình máy mới, vào
+      lại đúng dashboard tương ứng (Supabase Project Settings, Google Cloud
+      Credentials, Vercel Project Settings) — <strong>không lưu lại các key/secret
+      dạng chữ ở bất kỳ đâu</strong> ngoài các dashboard chính chủ đó.
+    </div>
+  </section>
+
+  <footer>Đồ án môn E-Logistics · Case Study Viettel Post · Dữ liệu vận hành trong demo là giả lập</footer>
+</div>
+</body>
+</html>
