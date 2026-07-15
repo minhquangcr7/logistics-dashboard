@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, Fragment } from "react";
-import { FILTERS, slaStatus, vehicleIcon, computeDelayStats } from "@/lib/data";
+import { FILTERS, slaStatus, CARGO_TYPE_META, computeDelayStats } from "@/lib/data";
 import StatusPill from "@/components/StatusPill";
 
 const COLUMNS = [
@@ -9,7 +9,7 @@ const COLUMNS = [
   { key: "customer", label: "Khách hàng" },
   { key: "route", label: "Tuyến" },
   { key: "status", label: "Trạng thái" },
-  { key: "deadline", label: "Dự kiến giao" },
+  { key: "deadline", label: "Cam kết giao" },
   { key: "location", label: "Vị trí hiện tại" },
   { key: "updated", label: "Cập nhật" },
 ];
@@ -20,6 +20,13 @@ export default function OrdersView({ orders }) {
   const [sortKey, setSortKey] = useState("updated");
   const [sortDir, setSortDir] = useState("desc");
   const [openRow, setOpenRow] = useState(null);
+
+  // Xử lý vận hành (mục 4.9) — chỉ giữ trạng thái tại chỗ, mô phỏng, mất khi tải lại trang.
+  const [actions, setActions] = useState({}); // { [orderId]: { shipperChanged, calledAt, priority } }
+
+  function markAction(id, patch) {
+    setActions((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
+  }
 
   const delayStats = useMemo(() => computeDelayStats(orders), [orders]);
 
@@ -129,6 +136,7 @@ export default function OrdersView({ orders }) {
                   </th>
                 ))}
                 <th>Loại</th>
+                <th>Xử lý</th>
               </tr>
             </thead>
             <tbody>
@@ -136,14 +144,18 @@ export default function OrdersView({ orders }) {
                 const sla = slaStatus(o);
                 const isOpen = openRow === o.id;
                 const clickable = o.status === "late";
+                const cargo = CARGO_TYPE_META[o.cargoType];
+                const act = actions[o.id] || {};
                 return (
                   <Fragment key={o.id}>
                     <tr
-                      className={clickable ? "row-clickable" : ""}
+                      className={`${clickable ? "row-clickable" : ""} ${act.priority ? "row-priority" : ""}`}
                       onClick={() => clickable && setOpenRow(isOpen ? null : o.id)}
                     >
                       <td className="expand-cell">{clickable ? (isOpen ? "▾" : "▸") : ""}</td>
-                      <td className="mono">{o.id}</td>
+                      <td className="mono">
+                        {act.priority && <span title="Ưu tiên giao">⚡</span>} {o.id}
+                      </td>
                       <td>{o.customer}</td>
                       <td>{o.route}</td>
                       <td>
@@ -158,11 +170,60 @@ export default function OrdersView({ orders }) {
                       </td>
                       <td>{o.location}</td>
                       <td className="muted">{o.updated}</td>
-                      <td className="vehicle-cell">{vehicleIcon(o.status)}</td>
+                      <td className="cargo-cell" title={cargo.label}>
+                        {cargo.icon}
+                      </td>
+                      <td className="actions-cell" onClick={(e) => e.stopPropagation()}>
+                        {o.status === "late" ? (
+                          <div className="action-group">
+                            <button
+                              className="action-btn"
+                              title="Đổi shipper"
+                              disabled={act.shipperChanged}
+                              onClick={() => markAction(o.id, { shipperChanged: true })}
+                            >
+                              🔄
+                            </button>
+                            <button
+                              className="action-btn"
+                              title="Gọi lại khách"
+                              disabled={!!act.calledAt}
+                              onClick={() =>
+                                markAction(o.id, {
+                                  calledAt: new Date().toLocaleTimeString("vi-VN", {
+                                    hour12: false,
+                                  }),
+                                })
+                              }
+                            >
+                              📞
+                            </button>
+                            <button
+                              className="action-btn"
+                              title="Ưu tiên giao"
+                              disabled={act.priority}
+                              onClick={() => markAction(o.id, { priority: true })}
+                            >
+                              ⚡
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="muted">—</span>
+                        )}
+                        {(act.shipperChanged || act.calledAt || act.priority) && (
+                          <div className="action-badges">
+                            {act.shipperChanged && <span className="badge">Đã đổi shipper</span>}
+                            {act.calledAt && (
+                              <span className="badge">Đã gọi khách lúc {act.calledAt}</span>
+                            )}
+                            {act.priority && <span className="badge badge-priority">Ưu tiên</span>}
+                          </div>
+                        )}
+                      </td>
                     </tr>
                     {isOpen && (
                       <tr className="detail-row">
-                        <td colSpan={9}>
+                        <td colSpan={10}>
                           <div className="delay-detail">
                             <strong>Lý do trễ:</strong> {o.delayReason}
                             <br />
@@ -176,7 +237,7 @@ export default function OrdersView({ orders }) {
               })}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="muted center">
+                  <td colSpan={10} className="muted center">
                     Không có đơn nào khớp bộ lọc/tìm kiếm.
                   </td>
                 </tr>

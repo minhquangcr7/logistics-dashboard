@@ -2,13 +2,18 @@
 
 import { useEffect, useRef } from "react";
 import "leaflet/dist/leaflet.css";
+import { routeColor } from "@/lib/data";
 
-// Bản đồ Leaflet dark-theme dùng chung: hiển thị 5 hub thật + đường nối có
-// độ rộng tỷ lệ lưu lượng (mục 3.3), hỗ trợ chọn hub bằng click (mục 5.5),
-// và vẽ 2 tuyến so sánh (mục 5.9).
+// Bản đồ Leaflet dark-theme dùng chung:
+// - Tổng quan (mục 3.3): mỗi tuyến 1 màu cố định (nét đứt, weight nhỏ) +
+//   chấm động màu theo loại hàng (tách biệt 2 lớp thông tin).
+// - Định tuyến AI (mục 5.5): chọn hub bằng click.
+// - Định tuyến AI (mục 5.9): vẽ 2 tuyến so sánh kết quả.
 export default function LeafletMap({
   hubs,
   hubCounts = {},
+  routes = null, // [{ from, to }] — vẽ đường màu cố định theo tuyến (mục 3.3)
+  flowDots = null, // [{ from, to, color }] — chấm động theo loại hàng
   onHubClick,
   selected = {},
   resultPaths = null, // { traditional: [name,...], ai: [name,...] }
@@ -17,6 +22,7 @@ export default function LeafletMap({
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const layerRef = useRef(null);
+  const animCleanupRef = useRef(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -44,11 +50,11 @@ export default function LeafletMap({
 
       mapRef.current = map;
       layerRef.current = L.layerGroup().addTo(map);
-      map.__redraw?.();
     });
 
     return () => {
       cancelled = true;
+      animCleanupRef.current?.();
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
@@ -57,6 +63,7 @@ export default function LeafletMap({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Vẽ hub, đường tuyến (màu cố định) và kết quả định tuyến.
   useEffect(() => {
     let cancelled = false;
     import("leaflet").then((L) => {
@@ -67,29 +74,25 @@ export default function LeafletMap({
       const byName = {};
       hubs.forEach((h) => (byName[h.name] = h));
 
-      const maxCount = Math.max(1, ...Object.values(hubCounts));
-
-      // Đường nối lưu lượng (mặc định, khi không có resultPaths).
-      if (!resultPaths) {
-        const drawn = new Set();
-        hubs.forEach((h1) => {
-          hubs.forEach((h2) => {
-            if (h1.id >= h2.id) return;
-            const key = `${h1.name}-${h2.name}`;
-            if (drawn.has(key)) return;
-            drawn.add(key);
-            const count =
-              (hubCounts[h1.name] || 0) + (hubCounts[h2.name] || 0);
-            if (count === 0) return;
-            const weight = 1.5 + (count / maxCount) * 5;
-            L.polyline(
-              [
-                [h1.lat, h1.lng],
-                [h2.lat, h2.lng],
-              ],
-              { color: "#f5a524", weight, opacity: 0.35 }
-            ).addTo(layer);
-          });
+      // Mỗi tuyến 1 màu cố định, nét đứt mảnh — KHÔNG dùng độ rộng theo lưu
+      // lượng nữa (dễ chồng lấn, khó phân biệt tuyến — theo phản hồi thực tế).
+      if (routes) {
+        routes.forEach((r) => {
+          const h1 = byName[r.from];
+          const h2 = byName[r.to];
+          if (!h1 || !h2) return;
+          L.polyline(
+            [
+              [h1.lat, h1.lng],
+              [h2.lat, h2.lng],
+            ],
+            {
+              color: routeColor(r.from, r.to),
+              weight: 2,
+              dashArray: "4 8",
+              opacity: 0.75,
+            }
+          ).addTo(layer);
         });
       }
 
@@ -152,7 +155,69 @@ export default function LeafletMap({
     return () => {
       cancelled = true;
     };
-  }, [hubs, hubCounts, onHubClick, selected, resultPaths]);
+  }, [hubs, hubCounts, routes, onHubClick, selected, resultPaths]);
+
+  // Chấm động màu theo loại hàng (3-4 chấm, tách biệt hoàn toàn với màu tuyến).
+  useEffect(() => {
+    animCleanupRef.current?.();
+    animCleanupRef.current = null;
+    if (!flowDots || flowDots.length === 0) return;
+
+    let cancelled = false;
+    import("leaflet").then((L) => {
+      if (cancelled || !mapRef.current || !layerRef.current) return;
+      const byName = {};
+      hubs.forEach((h) => (byName[h.name] = h));
+
+      const dots = flowDots
+        .map((f) => {
+          const from = byName[f.from];
+          const to = byName[f.to];
+          if (!from || !to) return null;
+          const icon = L.divIcon({
+            className: "",
+            html: `<div style="width:9px;height:9px;border-radius:50%;background:${f.color};box-shadow:0 0 6px ${f.color}"></div>`,
+            iconSize: [9, 9],
+            iconAnchor: [4, 4],
+          });
+          const marker = L.marker([from.lat, from.lng], {
+            icon,
+            interactive: false,
+          }).addTo(layerRef.current);
+          return { marker, from, to, offset: Math.random() };
+        })
+        .filter(Boolean);
+
+      if (dots.length === 0) return;
+
+      let rafId;
+      let last = performance.now();
+      function tick(now) {
+        const dt = now - last;
+        last = now;
+        dots.forEach((d) => {
+          d.offset = (d.offset + dt * 0.00005) % 1;
+          const lat = d.from.lat + (d.to.lat - d.from.lat) * d.offset;
+          const lng = d.from.lng + (d.to.lng - d.from.lng) * d.offset;
+          d.marker.setLatLng([lat, lng]);
+        });
+        rafId = requestAnimationFrame(tick);
+      }
+      rafId = requestAnimationFrame(tick);
+
+      animCleanupRef.current = () => {
+        cancelAnimationFrame(rafId);
+        dots.forEach((d) => d.marker.remove());
+      };
+    });
+
+    return () => {
+      cancelled = true;
+      animCleanupRef.current?.();
+      animCleanupRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flowDots, hubs]);
 
   return (
     <div

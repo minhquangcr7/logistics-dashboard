@@ -5,14 +5,12 @@ import dynamic from "next/dynamic";
 import {
   computeKpis,
   countByHub,
+  distinctRoutes,
   generateAiAlerts,
-  BEFORE_AFTER,
-  EXTRA_METRIC,
-  SOURCES,
+  CARGO_TYPE_META,
   HUBS,
 } from "@/lib/data";
 import StatusPill from "@/components/StatusPill";
-import BeforeAfterChart from "@/components/BeforeAfterChart";
 import AiDecisionCard from "@/components/AiDecisionCard";
 
 const LeafletMap = dynamic(() => import("@/components/LeafletMap"), {
@@ -24,7 +22,24 @@ export default function OverviewView({ orders }) {
   const kpi = computeKpis(orders);
   const recent = orders.slice(0, 6);
   const hubCounts = useMemo(() => countByHub(orders), [orders]);
+  const routes = useMemo(() => distinctRoutes(orders), [orders]);
   const alerts = useMemo(() => generateAiAlerts(orders), [orders]);
+
+  // 3-4 chấm động minh họa loại hàng đang di chuyển (mục 3.3).
+  const flowDots = useMemo(() => {
+    const seen = new Set();
+    const dots = [];
+    for (const o of orders) {
+      if (o.status === "done") continue;
+      const key = o.route + "|" + o.cargoType;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const [from, to] = o.route.split(" → ");
+      dots.push({ from, to, color: CARGO_TYPE_META[o.cargoType].color });
+      if (dots.length >= 4) break;
+    }
+    return dots;
+  }, [orders]);
 
   const cards = [
     { label: "Tổng đơn hôm nay", value: kpi.total, sub: "+12% so với hôm qua", tone: "blue" },
@@ -44,58 +59,6 @@ export default function OverviewView({ orders }) {
             <div className="kpi-sub">{c.sub}</div>
           </div>
         ))}
-      </div>
-
-      {/* So sánh trước / sau chuyển đổi số */}
-      <div className="panel">
-        <div className="panel-head">
-          <h3>So sánh hiệu quả trước và sau chuyển đổi số</h3>
-        </div>
-
-        <BeforeAfterChart />
-
-        <div className="extra-card">
-          <div>
-            <div className="extra-label">{EXTRA_METRIC.metric}</div>
-            <div className="extra-note">{EXTRA_METRIC.note}</div>
-          </div>
-          <div className="extra-value">{EXTRA_METRIC.value}</div>
-        </div>
-
-        <div className="table-scroll">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Chỉ tiêu</th>
-                <th>Trước (=100%)</th>
-                <th>Sau</th>
-                <th>Ghi chú</th>
-                <th>Nguồn</th>
-              </tr>
-            </thead>
-            <tbody>
-              {BEFORE_AFTER.map((d) => (
-                <tr key={d.metric}>
-                  <td>{d.metric}</td>
-                  <td>{d.before}%</td>
-                  <td className="accent-text">{d.after}%</td>
-                  <td className="muted">{d.note}</td>
-                  <td>
-                    <a href={SOURCES[d.source]} target="_blank" rel="noreferrer" className="src-link">
-                      Mục {d.source}
-                    </a>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        <p className="footnote">
-          Số liệu % do Viettel Post công bố; mốc &quot;Trước&quot; được quy ước là
-          100% để thể hiện tỷ lệ thay đổi, không phải số liệu tuyệt đối do Viettel
-          Post cung cấp.
-        </p>
       </div>
 
       {/* AI Decision Support */}
@@ -136,9 +99,29 @@ export default function OverviewView({ orders }) {
           <div className="panel-head">
             <h3>Bản đồ tuyến vận chuyển</h3>
           </div>
-          <LeafletMap hubs={HUBS} hubCounts={hubCounts} height={280} />
+          <LeafletMap
+            hubs={HUBS}
+            hubCounts={hubCounts}
+            routes={routes}
+            flowDots={flowDots}
+            height={280}
+          />
+          <div className="map-legend">
+            <div className="map-legend-row">
+              <span className="legend-dash" />
+              Màu đường = tuyến khác nhau (mỗi cặp hub 1 màu cố định)
+            </div>
+            <div className="map-legend-row">
+              {Object.values(CARGO_TYPE_META).map((c) => (
+                <span key={c.label} className="legend-dot-item">
+                  <span className="legend-dot" style={{ background: c.color }} />
+                  {c.icon} {c.label}
+                </span>
+              ))}
+            </div>
+          </div>
           <p className="map-note">
-            Vị trí hub là tọa độ thật; lưu lượng và tuyến vận chuyển mang tính minh họa.
+            Vị trí hub là tọa độ thật; màu tuyến và lưu lượng mang tính minh họa.
           </p>
         </div>
       </div>

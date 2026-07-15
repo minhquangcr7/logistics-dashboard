@@ -19,12 +19,14 @@ export const STATUS_META = {
   late: { label: "Trễ hạn", color: "red" },
 };
 
-// Icon phương tiện suy ra từ trạng thái (mục 4.8)
-export function vehicleIcon(status) {
-  if (status === "delivering") return "🛵";
-  if (status === "pickup" || status === "transit") return "🚚";
-  return "📦"; // received / done / late
-}
+// Loại hàng — cố định xuyên suốt vòng đời đơn, KHÔNG đổi theo trạng thái
+// (mục 4.8, đồng bộ với chú giải bản đồ mục 3.3).
+export const CARGO_TYPE_META = {
+  fast: { icon: "⚡", label: "Chuyển phát nhanh", color: "#f5a524" },
+  ecommerce: { icon: "🛒", label: "Thương mại điện tử", color: "#388bfd" },
+  cod: { icon: "💵", label: "COD (thu hộ)", color: "#2dd9c4" },
+};
+const CARGO_TYPE_KEYS = Object.keys(CARGO_TYPE_META);
 
 // --- Bộ lọc trạng thái (mục 4.1) ---
 export const FILTERS = [
@@ -116,10 +118,45 @@ function nowTime() {
   return new Date().toLocaleTimeString("vi-VN", { hour12: false });
 }
 
-function randomDeadline() {
-  // Dự kiến giao trong khoảng 6-24 giờ kể từ lúc tạo đơn (mục 4.6 / 7).
-  const hoursAhead = 6 + Math.random() * 18;
-  return Date.now() + hoursAhead * 3600 * 1000;
+const TRADITIONAL_SPEED = 45; // km/h — tốc độ TB vận tải đường bộ truyền thống
+const TRANSSHIP_STOP_HOURS = 1; // phụ trội cố định mỗi điểm trung chuyển (mục 4.6)
+
+// Cam kết giao hàng CÓ CĂN CỨ (mục 4.6): giờ nhận đơn + thời gian di chuyển
+// theo khoảng cách/tốc độ (mục 5.3) + phụ trội mỗi điểm trung chuyển (mục 5.4).
+// getDistance/getRouteTemplate được khai báo bằng `function` bên dưới nên đã
+// hoisted, gọi được ở đây dù nằm trước trong file.
+function computeDeadline(route, createdAt) {
+  const [a, b] = route.split(" → ");
+  const dist = getDistance(a, b) ?? 800; // fallback nếu cặp thành phố không có sẵn
+  const template = getRouteTemplate(a, b);
+  const travelHours = dist / TRADITIONAL_SPEED;
+  const stopHours = template.traditional.length * TRANSSHIP_STOP_HOURS;
+  return createdAt + (travelHours + stopHours) * 3600 * 1000;
+}
+
+function randomCargoType() {
+  return randomFrom(CARGO_TYPE_KEYS);
+}
+
+// Tự động chuyển đơn sang "late" khi đã vượt mốc cam kết mà chưa giao xong —
+// giữ "Trễ hạn" luôn nhất quán với cột "Cam kết giao" (mục 4.6), không random.
+function reconcileLate(orders) {
+  const now = Date.now();
+  return orders.map((o) => {
+    if (o.status !== "done" && o.status !== "late" && o.deadline && now > o.deadline) {
+      const delay = randomFrom(DELAY_REASONS);
+      return {
+        ...o,
+        status: "late",
+        location: randomFrom(LOCATIONS),
+        updated: nowTime(),
+        delayReason: delay.reason,
+        delayCategory: delay.category,
+        delayEta: "Dự kiến giao lại trong 4 giờ tới",
+      };
+    }
+    return o;
+  });
 }
 
 // Tạo ~14 đơn hàng mẫu ban đầu.
@@ -132,63 +169,57 @@ export function generateOrders() {
     "delivering",
     "done",
     "done",
-    "late",
   ];
   const orders = [];
   for (let i = 0; i < 14; i++) {
     const status = randomFrom(statuses);
-    const delay = status === "late" ? randomFrom(DELAY_REASONS) : null;
+    const route = randomRoute();
+
+    // Giờ nhận đơn giả lập trong quá khứ, tỉ lệ với thời gian cam kết dự
+    // kiến của tuyến đó — tạo độ trải đều các mức đếm ngược SLA khi khởi tạo.
+    const [a, b] = route.split(" → ");
+    const dist = getDistance(a, b) ?? 800;
+    const template = getRouteTemplate(a, b);
+    const commitHours = dist / TRADITIONAL_SPEED + template.traditional.length * TRANSSHIP_STOP_HOURS;
+    const createdAt = Date.now() - Math.random() * 1.4 * commitHours * 3600 * 1000;
+
     orders.push({
       id: randomOrderId(),
       customer: randomFrom(CUSTOMER_NAMES),
-      route: randomRoute(),
+      route,
       status,
       location: randomFrom(LOCATIONS),
       updated: nowTime(),
-      deadline: randomDeadline(),
-      delayReason: delay?.reason ?? null,
-      delayCategory: delay?.category ?? null,
-      delayEta: status === "late" ? "Dự kiến giao lại trong 4 giờ tới" : null,
+      deadline: computeDeadline(route, createdAt),
+      cargoType: randomCargoType(),
+      delayReason: null,
+      delayCategory: null,
+      delayEta: null,
     });
   }
-  return orders;
+  return reconcileLate(orders);
 }
 
-// Đẩy 1 đơn ngẫu nhiên (chưa hoàn tất) sang trạng thái kế tiếp — dùng cho
-// cơ chế "real-time giả lập" mỗi 4 giây (đặc tả mục 4.3).
+// Mỗi 4 giây: (1) tự động chuyển "late" cho đơn đã quá cam kết (mục 4.6),
+// (2) tiến 1 đơn ngẫu nhiên chưa hoàn tất/chưa trễ sang trạng thái kế tiếp
+// (mục 4.3).
 export function advanceOneOrder(orders) {
-  const candidates = orders.filter(
-    (o) => o.status !== "done" && o.status !== "late"
-  );
-  if (candidates.length === 0) return orders;
+  let next = reconcileLate(orders);
+
+  const candidates = next.filter((o) => o.status !== "done" && o.status !== "late");
+  if (candidates.length === 0 || Math.random() >= 0.6) return next;
 
   const target = randomFrom(candidates);
-  const roll = Math.random();
-  let newStatus = target.status;
-  if (roll < 0.08) {
-    newStatus = "late";
-  } else if (roll < 0.68) {
-    const idx = STATUS_FLOW.indexOf(target.status);
-    newStatus = STATUS_FLOW[Math.min(idx + 1, STATUS_FLOW.length - 1)];
-  } else {
-    return orders; // không đổi lần này
-  }
+  const idx = STATUS_FLOW.indexOf(target.status);
+  const newStatus = STATUS_FLOW[Math.min(idx + 1, STATUS_FLOW.length - 1)];
 
-  const delay = newStatus === "late" ? randomFrom(DELAY_REASONS) : null;
-
-  return orders.map((o) =>
+  return next.map((o) =>
     o.id === target.id
       ? {
           ...o,
           status: newStatus,
-          location:
-            newStatus === "done"
-              ? "Đã giao thành công"
-              : randomFrom(LOCATIONS),
+          location: newStatus === "done" ? "Đã giao thành công" : randomFrom(LOCATIONS),
           updated: nowTime(),
-          delayReason: delay?.reason ?? o.delayReason,
-          delayCategory: delay?.category ?? o.delayCategory,
-          delayEta: newStatus === "late" ? "Dự kiến giao lại trong 4 giờ tới" : o.delayEta,
         }
       : o
   );
@@ -223,7 +254,7 @@ export function computeDelayStats(orders) {
     .sort((a, b) => b.count - a.count);
 }
 
-// --- SLA countdown (mục 4.6) ---
+// --- Đếm ngược SLA theo "Cam kết giao" (mục 4.6) ---
 export function slaStatus(order) {
   if (!order.deadline) return { level: "none" };
 
@@ -234,15 +265,19 @@ export function slaStatus(order) {
     month: "2-digit",
   });
 
-  // Đơn đã giao/trễ hạn: chỉ hiện mốc giờ dự kiến ban đầu để đối chiếu, không đếm ngược.
-  if (order.status === "done" || order.status === "late") {
+  // Đơn đã giao: chỉ hiện lại mốc cam kết ban đầu để đối chiếu, không đếm ngược.
+  if (order.status === "done") {
     return { level: "none", deadlineText: fmt };
   }
 
-  const diffMs = order.deadline - Date.now();
-  const diffH = diffMs / 3600000;
+  // Đơn trễ hạn vẫn hiện rõ đã trễ bao lâu so với cam kết — nhất quán với status.
+  const diffH = (order.deadline - Date.now()) / 3600000;
   if (diffH < 0) {
-    return { level: "over", text: `⛔ Quá hạn ${Math.round(-diffH)} giờ`, deadlineText: fmt };
+    return {
+      level: "over",
+      text: `⛔ Trễ ${Math.round(-diffH)} giờ so với cam kết`,
+      deadlineText: fmt,
+    };
   }
   if (diffH < 6) {
     return { level: "soon", text: `⚠ Còn ${Math.round(diffH)} giờ`, deadlineText: fmt };
@@ -270,30 +305,84 @@ export function countByHub(orders) {
   return counts;
 }
 
+// Danh sách tuyến (cặp hub) khác nhau đang có đơn — dùng để vẽ đường màu cố
+// định trên bản đồ (mục 3.3).
+export function distinctRoutes(orders) {
+  const seen = new Map();
+  orders.forEach((o) => {
+    const [a, b] = o.route.split(" → ");
+    const key = [a, b].sort().join("-");
+    if (!seen.has(key)) seen.set(key, { key, from: a, to: b });
+  });
+  return Array.from(seen.values());
+}
+
+// Mỗi tuyến (cặp hub) được gán 1 màu cố định, xoay vòng bảng màu nếu nhiều
+// tuyến hơn số màu (mục 3.3 / 7).
+const ROUTE_COLOR_PALETTE = [
+  "#388bfd", // xanh dương
+  "#a78bfa", // tím
+  "#f472b6", // hồng
+  "#2dd9c4", // xanh ngọc
+  "#fb923c", // cam nhạt
+  "#34d399", // xanh lá
+  "#f5a524", // vàng hổ phách
+  "#f85149", // đỏ
+];
+
+export function routeColor(from, to) {
+  const norm = [from, to].sort().join("-");
+  let hash = 0;
+  for (let i = 0; i < norm.length; i++) hash = (hash * 31 + norm.charCodeAt(i)) >>> 0;
+  return ROUTE_COLOR_PALETTE[hash % ROUTE_COLOR_PALETTE.length];
+}
+
 // =====================================================================
-// AI DECISION SUPPORT — cảnh báo rule-based (mục 3.4)
+// AI DECISION SUPPORT — 3 nhóm cảnh báo rule-based chính thức (mục 3.4)
 // =====================================================================
+export const AI_ALERT_GROUPS = {
+  late: { icon: "🔔", label: "Cảnh báo trễ hàng", actionLabel: "Áp dụng ngay" },
+  optimize: { icon: "🧭", label: "Tối ưu tuyến", actionLabel: "Ghi nhận gợi ý" },
+  balance: { icon: "⚖️", label: "Cân bằng tải hub", actionLabel: "Cân bằng" },
+};
+
+const LATE_SUGGESTIONS = [
+  "Điều thêm xe từ hub lân cận hỗ trợ tuyến",
+  "Chuyển bớt đơn sang đối tác vận chuyển thứ 3",
+  "Ưu tiên xử lý trước các đơn trên tuyến này",
+];
+
+const OPTIMIZE_SUGGESTIONS = [
+  { text: "Gợi ý tránh quốc lộ đông đúc vào khung giờ cao điểm", saveHours: 2, saveFuel: 8 },
+  { text: "Gợi ý đổi giờ xuất phát sớm hơn để tránh kẹt xe nội đô", saveHours: 1.5, saveFuel: 5 },
+  { text: "Gợi ý gộp đơn cùng tuyến để giảm số chuyến", saveHours: 1, saveFuel: 10 },
+];
+
 export function generateAiAlerts(orders) {
   const alerts = [];
   const hubCounts = countByHub(orders);
   const values = Object.values(hubCounts);
   const avg = values.length ? values.reduce((a, b) => a + b, 0) / values.length : 0;
 
-  // 1) Hub có lượng đơn vượt > 35% so với trung bình.
+  // 1) ⚖️ Cân bằng tải hub — hub vượt >20% so với trung bình (Cao nếu >30%).
   Object.entries(hubCounts).forEach(([hub, count]) => {
-    if (avg > 0 && count > avg * 1.35) {
+    if (avg > 0 && count > avg * 1.2) {
       const pct = Math.round(((count - avg) / avg) * 100);
+      const nearby = HUBS.find((h) => h.name !== hub)?.name ?? "hub lân cận";
       alerts.push({
-        id: `spike-${hub}`,
-        type: "spike",
-        title: `Hub ${hub}: lượng đơn tăng ${pct}% so với trung bình`,
-        suggestion: `Đề xuất: điều thêm xe từ hub lân cận hỗ trợ ${hub}`,
+        id: `balance-${hub}`,
+        group: "balance",
+        priority: pct > 30 ? "high" : "medium",
+        title: `Cân bằng tải Hub ${hub}`,
+        summary: `Hub ${hub} đang quá tải, cao hơn <strong>${pct}%</strong> so với mức trung bình toàn hệ thống.`,
+        suggestionLabel: "Gợi ý",
+        suggestion: `Chuyển khoảng ${Math.min(pct, 30)}% đơn từ ${hub} sang ${nearby}`,
         detail: `${hub} đang xử lý ${count} đơn, cao hơn mức trung bình ${avg.toFixed(1)} đơn/hub của toàn hệ thống.`,
       });
     }
   });
 
-  // 2) Tuyến có từ 3 đơn trễ hạn trở lên.
+  // 2) 🔔 Cảnh báo trễ hàng — tuyến có từ 2 đơn trễ hạn trở lên (Cao nếu ≥3).
   const lateByRoute = {};
   orders
     .filter((o) => o.status === "late")
@@ -304,15 +393,36 @@ export function generateAiAlerts(orders) {
     if (count >= 2) {
       alerts.push({
         id: `late-${route}`,
-        type: "late",
-        title: `Tuyến ${route}: ${count} đơn trễ hạn liên tiếp`,
-        suggestion: `Đề xuất: chuyển bớt đơn sang đối tác vận chuyển thứ 3 để giảm tải tuyến này`,
-        detail: `Tuyến ${route} hiện có ${count} đơn đang ở trạng thái trễ hạn, cần ưu tiên xử lý hoặc tăng nguồn lực.`,
+        group: "late",
+        priority: count >= 3 ? "high" : "medium",
+        title: `Tuyến ${route}`,
+        summary: `Tuyến ${route} hiện có <strong>${count} đơn</strong> trễ hạn liên tiếp.`,
+        suggestionLabel: "Đề xuất",
+        suggestion: randomFrom(LATE_SUGGESTIONS),
+        detail: `Tuyến ${route} đang có ${count} đơn ở trạng thái trễ hạn, cần ưu tiên xử lý hoặc tăng nguồn lực.`,
       });
     }
   });
 
-  return alerts.slice(0, 4);
+  // 3) 🧭 Tối ưu tuyến — 1 gợi ý cải thiện mang tính chủ động, không cần sự cố.
+  const activeRoutes = distinctRoutes(orders);
+  if (activeRoutes.length > 0) {
+    const r = randomFrom(activeRoutes);
+    const opt = randomFrom(OPTIMIZE_SUGGESTIONS);
+    alerts.push({
+      id: `optimize-${r.key}`,
+      group: "optimize",
+      priority: "low",
+      title: `Tối ưu hóa tuyến ${r.from} → ${r.to}`,
+      summary: `${opt.text}.`,
+      suggestionLabel: "Hiệu quả",
+      suggestion: `Tiết kiệm ~${opt.saveHours} giờ, giảm ~${opt.saveFuel}% nhiên liệu`,
+      detail: `Gợi ý cải thiện chủ động cho tuyến đang vận hành, không phải phản ứng với sự cố cụ thể.`,
+    });
+  }
+
+  const priorityRank = { high: 0, medium: 1, low: 2 };
+  return alerts.sort((a, b) => priorityRank[a.priority] - priorityRank[b.priority]).slice(0, 5);
 }
 
 // =====================================================================
