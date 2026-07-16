@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { HUBS, CARGO_TYPES } from "@/lib/data";
 import { planRoute } from "@/lib/routing";
 import PlaceSearch from "@/components/PlaceSearch";
+import { IconSparkle, IconCheck } from "@/components/icons";
 
 const LeafletMap = dynamic(() => import("@/components/LeafletMap"), {
   ssr: false,
@@ -96,14 +97,14 @@ export default function RoutingView() {
 
         <div className="place-search-row">
           <PlaceSearch
-            label="📍 Điểm lấy hàng"
+            label="Điểm lấy hàng"
             placeholder="Nhập địa chỉ, tên đường, thành phố…"
             value={from}
             onSelect={pickFrom}
             accentColor="var(--accent)"
           />
           <PlaceSearch
-            label="📍 Điểm giao hàng"
+            label="Điểm giao hàng"
             placeholder="Nhập địa chỉ, tên đường, thành phố…"
             value={to}
             onSelect={pickTo}
@@ -172,15 +173,19 @@ export default function RoutingView() {
               {result.cargoNote && <div className="cargo-note">{result.cargoNote}</div>}
               <ul className="benefit-list">
                 {result.ai.benefits.map((b) => (
-                  <li key={b}>{b}</li>
+                  <li key={b}>
+                    <IconCheck size={13} className="benefit-check" />
+                    {b}
+                  </li>
                 ))}
               </ul>
             </div>
           </div>
 
           <div className="save-banner">
-            💬 Tiết kiệm khoảng <strong>{result.savePct}%</strong> thời gian nhờ
-            chọn hub tối ưu và giảm điểm trung chuyển.
+            <IconSparkle size={15} />
+            Tiết kiệm khoảng <strong>{result.savePct}%</strong> thời gian nhờ chọn hub
+            tối ưu và giảm điểm trung chuyển.
           </div>
 
           <div className="panel">

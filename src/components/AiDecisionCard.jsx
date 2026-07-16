@@ -2,15 +2,18 @@
 
 import { useState } from "react";
 import { AI_ALERT_GROUPS } from "@/lib/data";
+import { IconBell, IconCompass, IconScale, IconCheck, IconRadar } from "@/components/icons";
+
+const GROUP_ICONS = { bell: IconBell, compass: IconCompass, scale: IconScale };
 
 const PRIORITY_META = {
-  high: { label: "🔴 Cao", cls: "prio-high" },
-  medium: { label: "🟡 Trung bình", cls: "prio-medium" },
-  low: { label: "🟢 Thấp", cls: "prio-low" },
+  high: { label: "Cao", cls: "prio-high" },
+  medium: { label: "Trung bình", cls: "prio-medium" },
+  low: { label: "Thấp", cls: "prio-low" },
 };
 
-// AI Decision Support — 3 nhóm cảnh báo/gợi ý rule-based chính thức (mục 3.4):
-// 🔔 Cảnh báo trễ hàng · 🧭 Tối ưu tuyến · ⚖️ Cân bằng tải hub.
+// Cảnh báo & gợi ý điều phối — 3 nhóm rule-based chính thức (mục 3.4):
+// Cảnh báo trễ hàng · Tối ưu tuyến · Cân bằng tải hub.
 export default function AiDecisionCard({ alerts }) {
   const [expanded, setExpanded] = useState({});
   const [applied, setApplied] = useState({});
@@ -19,13 +22,16 @@ export default function AiDecisionCard({ alerts }) {
     <div className="panel ai-card">
       <div className="panel-head">
         <div>
-          <h3>🤖 AI Decision Support — Cảnh báo &amp; gợi ý điều phối</h3>
+          <h3>
+            <IconRadar size={17} className="heading-icon" />
+            Cảnh báo &amp; gợi ý điều phối
+          </h3>
           <p className="ai-sub">
-            Gợi ý tự động dựa trên dữ liệu đang vận hành — khác với tra cứu thủ công ở
+            Cập nhật theo dữ liệu vận hành thời gian thực — khác với tra cứu thủ công ở
             tab Định tuyến AI.
           </p>
         </div>
-        <span className="live-dot">● giám sát liên tục</span>
+        <span className="live-dot">● theo dõi liên tục</span>
       </div>
 
       {alerts.length === 0 ? (
@@ -36,10 +42,14 @@ export default function AiDecisionCard({ alerts }) {
         <div className="ai-alerts">
           {alerts.map((a) => {
             const group = AI_ALERT_GROUPS[a.group];
+            const GroupIcon = GROUP_ICONS[group.icon];
             const prio = PRIORITY_META[a.priority];
+            const isApplied = applied[a.id];
             return (
-              <div key={a.id} className={`ai-alert ${applied[a.id] ? "applied" : ""}`}>
-                <div className="ai-alert-icon">{applied[a.id] ? "✅" : group.icon}</div>
+              <div key={a.id} className={`ai-alert prio-${a.priority} ${isApplied ? "applied" : ""}`}>
+                <div className="ai-alert-icon">
+                  {isApplied ? <IconCheck size={17} /> : <GroupIcon size={17} />}
+                </div>
                 <div className="ai-alert-body">
                   <div className="ai-alert-top">
                     <span className="ai-group-label">{group.label}</span>
@@ -51,7 +61,7 @@ export default function AiDecisionCard({ alerts }) {
                     dangerouslySetInnerHTML={{ __html: a.summary }}
                   />
                   <div className="ai-alert-suggestion">
-                    🤖 <strong>{a.suggestionLabel}:</strong> <em>{a.suggestion}</em>
+                    <strong>{a.suggestionLabel}:</strong> <span>{a.suggestion}</span>
                   </div>
                   {expanded[a.id] && <div className="ai-alert-detail">{a.detail}</div>}
                   <div className="ai-alert-actions">
@@ -63,10 +73,10 @@ export default function AiDecisionCard({ alerts }) {
                     </button>
                     <button
                       className="chip apply-btn"
-                      disabled={applied[a.id]}
+                      disabled={isApplied}
                       onClick={() => setApplied((e) => ({ ...e, [a.id]: true }))}
                     >
-                      {applied[a.id] ? "Đã áp dụng" : group.actionLabel}
+                      {isApplied ? "Đã áp dụng" : group.actionLabel}
                     </button>
                   </div>
                 </div>
@@ -77,9 +87,8 @@ export default function AiDecisionCard({ alerts }) {
       )}
 
       <p className="footnote">
-        Mô phỏng luồng ra quyết định dựa trên luật (rule-based) áp dụng lên dữ liệu có
-        sẵn — thể hiện ý tưởng &quot;AI hỗ trợ ra quyết định&quot;, không phải mô hình
-        máy học đã huấn luyện.
+        Cảnh báo được sinh theo bộ quy tắc cố định dựa trên dữ liệu đơn hàng hiện có —
+        chưa phải kết quả từ mô hình máy học đã huấn luyện.
       </p>
     </div>
   );

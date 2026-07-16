@@ -22,9 +22,9 @@ export const STATUS_META = {
 // Loại hàng — cố định xuyên suốt vòng đời đơn, KHÔNG đổi theo trạng thái
 // (mục 4.8, đồng bộ với chú giải bản đồ mục 3.3).
 export const CARGO_TYPE_META = {
-  fast: { icon: "⚡", label: "Chuyển phát nhanh", color: "#f5a524" },
-  ecommerce: { icon: "🛒", label: "Thương mại điện tử", color: "#388bfd" },
-  cod: { icon: "💵", label: "COD (thu hộ)", color: "#2dd9c4" },
+  fast: { icon: "bolt", label: "Chuyển phát nhanh", color: "#f5a524" },
+  ecommerce: { icon: "bag", label: "Thương mại điện tử", color: "#388bfd" },
+  cod: { icon: "wallet", label: "COD (thu hộ)", color: "#2dd9c4" },
 };
 const CARGO_TYPE_KEYS = Object.keys(CARGO_TYPE_META);
 
@@ -380,12 +380,12 @@ export function slaStatus(order) {
   if (diffH < 0) {
     return {
       level: "over",
-      text: `⛔ Trễ ${Math.round(-diffH)} giờ so với cam kết`,
+      text: `Trễ ${Math.round(-diffH)} giờ so với cam kết`,
       deadlineText: fmt,
     };
   }
   if (diffH < 6) {
-    return { level: "soon", text: `⚠ Còn ${Math.round(diffH)} giờ`, deadlineText: fmt };
+    return { level: "soon", text: `Còn ${Math.round(diffH)} giờ`, deadlineText: fmt };
   }
   return { level: "ok", text: `Còn ${Math.round(diffH)} giờ`, deadlineText: fmt };
 }
@@ -520,12 +520,12 @@ export function routeColor(from, to) {
 }
 
 // =====================================================================
-// AI DECISION SUPPORT — 3 nhóm cảnh báo rule-based chính thức (mục 3.4)
+// CẢNH BÁO & GỢI Ý ĐIỀU PHỐI — 3 nhóm rule-based chính thức (mục 3.4)
 // =====================================================================
 export const AI_ALERT_GROUPS = {
-  late: { icon: "🔔", label: "Cảnh báo trễ hàng", actionLabel: "Áp dụng ngay" },
-  optimize: { icon: "🧭", label: "Tối ưu tuyến", actionLabel: "Ghi nhận gợi ý" },
-  balance: { icon: "⚖️", label: "Cân bằng tải hub", actionLabel: "Cân bằng" },
+  late: { icon: "bell", label: "Cảnh báo trễ hàng", actionLabel: "Áp dụng ngay" },
+  optimize: { icon: "compass", label: "Tối ưu tuyến", actionLabel: "Ghi nhận gợi ý" },
+  balance: { icon: "scale", label: "Cân bằng tải hub", actionLabel: "Cân bằng" },
 };
 
 const LATE_SUGGESTIONS = [
@@ -546,7 +546,7 @@ export function generateAiAlerts(orders) {
   const values = Object.values(hubCounts);
   const avg = values.length ? values.reduce((a, b) => a + b, 0) / values.length : 0;
 
-  // 1) ⚖️ Cân bằng tải hub — hub vượt >20% so với trung bình (Cao nếu >30%).
+  // 1) Cân bằng tải hub — hub vượt >20% so với trung bình (Cao nếu >30%).
   Object.entries(hubCounts).forEach(([hub, count]) => {
     if (avg > 0 && count > avg * 1.2) {
       const pct = Math.round(((count - avg) / avg) * 100);
@@ -564,7 +564,7 @@ export function generateAiAlerts(orders) {
     }
   });
 
-  // 2) 🔔 Cảnh báo trễ hàng — tuyến có từ 2 đơn trễ hạn trở lên (Cao nếu ≥3).
+  // 2) Cảnh báo trễ hàng — tuyến có từ 2 đơn trễ hạn trở lên (Cao nếu ≥3).
   const lateByRoute = {};
   orders
     .filter((o) => o.status === "late")
@@ -586,7 +586,7 @@ export function generateAiAlerts(orders) {
     }
   });
 
-  // 3) 🧭 Tối ưu tuyến — 1 gợi ý cải thiện mang tính chủ động, không cần sự cố.
+  // 3) Tối ưu tuyến — 1 gợi ý cải thiện mang tính chủ động, không cần sự cố.
   const activeRoutes = distinctRoutes(orders);
   if (activeRoutes.length > 0) {
     const r = randomFrom(activeRoutes);
@@ -654,11 +654,11 @@ export function getRouteTemplate(a, b) {
 }
 
 export const QUALITATIVE_BENEFITS = [
-  "✅ Tránh khung giờ cao điểm tại nội đô các thành phố lớn",
-  "✅ Giảm số lần bốc dỡ hàng hóa → giảm rủi ro hư hỏng/thất lạc",
-  "✅ Ưu tiên hub có công suất xử lý còn trống, tránh dồn ứ",
-  "✅ Phù hợp hơn với hàng dễ vỡ/hàng giá trị cao (ít điểm trung chuyển = ít rủi ro)",
-  "✅ Rút ngắn thời gian chờ trung chuyển tại các hub trung gian",
+  "Tránh khung giờ cao điểm tại nội đô các thành phố lớn",
+  "Giảm số lần bốc dỡ hàng hóa, hạn chế rủi ro hư hỏng/thất lạc",
+  "Ưu tiên hub có công suất xử lý còn trống, tránh dồn ứ",
+  "Phù hợp hơn với hàng dễ vỡ/hàng giá trị cao (ít điểm trung chuyển hơn)",
+  "Rút ngắn thời gian chờ trung chuyển tại các hub trung gian",
 ];
 
 export const CARGO_TYPES = [

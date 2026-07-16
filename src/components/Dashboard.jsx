@@ -5,26 +5,27 @@ import { generateOrders, advanceOneOrder } from "@/lib/data";
 import OverviewView from "@/components/views/OverviewView";
 import OrdersView from "@/components/views/OrdersView";
 import RoutingView from "@/components/views/RoutingView";
+import { IconGrid, IconList, IconCompass, IconMenu, IconLogout } from "@/components/icons";
 
 const TABS = [
   {
     key: "overview",
     label: "Tổng quan",
-    icon: "▦",
+    Icon: IconGrid,
     title: "Tổng quan vận hành",
     subtitle: "Bức tranh toàn cảnh tình trạng vận hành trong hôm nay",
   },
   {
     key: "orders",
     label: "Đơn hàng",
-    icon: "▤",
+    Icon: IconList,
     title: "Theo dõi đơn hàng",
-    subtitle: "Tracking chi tiết từng đơn — cập nhật real-time (giả lập)",
+    subtitle: "Theo dõi chi tiết từng đơn hàng, cập nhật liên tục theo thời gian thực",
   },
   {
     key: "routing",
     label: "Định tuyến AI",
-    icon: "◈",
+    Icon: IconCompass,
     title: "Định tuyến AI",
     subtitle: "So sánh tuyến truyền thống và tuyến tối ưu bởi AI",
   },
@@ -93,7 +94,7 @@ export default function Dashboard({ displayName, role, email }) {
                 setMenuOpen(false);
               }}
             >
-              <span className="nav-icon" aria-hidden>{t.icon}</span>
+              <span className="nav-icon" aria-hidden><t.Icon size={16} /></span>
               {t.label}
             </button>
           ))}
@@ -110,7 +111,10 @@ export default function Dashboard({ displayName, role, email }) {
             </div>
           </div>
           <form action="/auth/signout" method="post">
-            <button type="submit" className="signout-btn">Đăng xuất</button>
+            <button type="submit" className="signout-btn">
+              <IconLogout size={14} />
+              Đăng xuất
+            </button>
           </form>
           <p className="disclaimer">
             Demo minh họa — dữ liệu giả lập phục vụ đồ án môn E-Logistics. Không
@@ -127,7 +131,7 @@ export default function Dashboard({ displayName, role, email }) {
             onClick={() => setMenuOpen((o) => !o)}
             aria-label="Mở menu"
           >
-            ☰
+            <IconMenu size={18} />
           </button>
           <div className="topbar-title">
             <h1>{current.title}</h1>

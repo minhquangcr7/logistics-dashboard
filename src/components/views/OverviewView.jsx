@@ -71,7 +71,7 @@ export default function OverviewView({ orders }) {
       {/* Dự báo lưu lượng 7 ngày */}
       <ForecastChart baseVolume={kpi.total} />
 
-      {/* AI Decision Support */}
+      {/* Cảnh báo & gợi ý điều phối */}
       <AiDecisionCard alerts={alerts} />
 
       {/* Bảng đơn gần đây + bản đồ */}
@@ -126,7 +126,7 @@ export default function OverviewView({ orders }) {
               {Object.values(CARGO_TYPE_META).map((c) => (
                 <span key={c.label} className="legend-dot-item">
                   <span className="legend-dot" style={{ background: c.color }} />
-                  {c.icon} {c.label}
+                  {c.label}
                 </span>
               ))}
             </div>

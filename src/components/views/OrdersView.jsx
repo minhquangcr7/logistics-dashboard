@@ -4,6 +4,18 @@ import { useState, useMemo, Fragment } from "react";
 import { FILTERS, slaStatus, CARGO_TYPE_META, computeDelayStats } from "@/lib/data";
 import { exportOrdersCsv } from "@/lib/exportCsv";
 import StatusPill from "@/components/StatusPill";
+import {
+  IconBolt,
+  IconBag,
+  IconWallet,
+  IconRefresh,
+  IconPhone,
+  IconDownload,
+  IconAlertOctagon,
+  IconAlertTriangle,
+} from "@/components/icons";
+
+const CARGO_ICONS = { bolt: IconBolt, bag: IconBag, wallet: IconWallet };
 
 const COLUMNS = [
   { key: "id", label: "Mã đơn" },
@@ -130,7 +142,8 @@ export default function OrdersView({ orders }) {
                 )
               }
             >
-              ⬇ Xuất báo cáo (Excel)
+              <IconDownload size={13} />
+              Xuất báo cáo (Excel)
             </button>
           </div>
         </div>
@@ -168,7 +181,12 @@ export default function OrdersView({ orders }) {
                     >
                       <td className="expand-cell">{clickable ? (isOpen ? "▾" : "▸") : ""}</td>
                       <td className="mono">
-                        {act.priority && <span title="Ưu tiên giao">⚡</span>} {o.id}
+                        {act.priority && (
+                          <span className="priority-mark" title="Ưu tiên giao">
+                            <IconBolt size={12} />
+                          </span>
+                        )}{" "}
+                        {o.id}
                       </td>
                       <td>{o.customer}</td>
                       <td>{o.route}</td>
@@ -179,13 +197,20 @@ export default function OrdersView({ orders }) {
                       <td>
                         {sla.deadlineText}
                         {sla.level !== "none" && (
-                          <div className={`sla-text sla-${sla.level}`}>{sla.text}</div>
+                          <div className={`sla-text sla-${sla.level}`}>
+                            {sla.level === "over" && <IconAlertOctagon size={11} />}
+                            {sla.level === "soon" && <IconAlertTriangle size={11} />}
+                            {sla.text}
+                          </div>
                         )}
                       </td>
                       <td>{o.location}</td>
                       <td className="muted">{o.updated}</td>
                       <td className="cargo-cell" title={cargo.label}>
-                        {cargo.icon}
+                        {(() => {
+                          const CargoIcon = CARGO_ICONS[cargo.icon];
+                          return <CargoIcon size={15} style={{ color: cargo.color }} />;
+                        })()}
                       </td>
                       <td className="actions-cell" onClick={(e) => e.stopPropagation()}>
                         {o.status === "late" ? (
@@ -196,7 +221,7 @@ export default function OrdersView({ orders }) {
                               disabled={act.shipperChanged}
                               onClick={() => markAction(o.id, { shipperChanged: true })}
                             >
-                              🔄
+                              <IconRefresh size={14} />
                             </button>
                             <button
                               className="action-btn"
@@ -210,7 +235,7 @@ export default function OrdersView({ orders }) {
                                 })
                               }
                             >
-                              📞
+                              <IconPhone size={14} />
                             </button>
                             <button
                               className="action-btn"
@@ -218,7 +243,7 @@ export default function OrdersView({ orders }) {
                               disabled={act.priority}
                               onClick={() => markAction(o.id, { priority: true })}
                             >
-                              ⚡
+                              <IconBolt size={14} />
                             </button>
                           </div>
                         ) : (

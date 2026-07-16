@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { searchPlaces } from "@/lib/geo";
+import { IconPin } from "@/components/icons";
 
 // Thanh tìm kiếm địa điểm thật (mọi địa chỉ ở VN, không giới hạn 5 hub) —
 // gõ vào tự gợi ý sau debounce ~400ms qua Nominatim (OpenStreetMap).
@@ -52,6 +53,7 @@ export default function PlaceSearch({ label, placeholder, value, onSelect, accen
   return (
     <div className="place-search" ref={boxRef}>
       <label className="place-search-label" style={accentColor ? { color: accentColor } : undefined}>
+        <IconPin size={13} />
         {label}
       </label>
       <input

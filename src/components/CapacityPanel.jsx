@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { computeHubCapacity, computeFleetStatus } from "@/lib/data";
+import { IconTruck, IconLock } from "@/components/icons";
 
 function levelOf(pct) {
   if (pct >= 85) return "high";
@@ -19,7 +20,10 @@ export default function CapacityPanel({ orders }) {
     <div className="panel">
       <div className="panel-head">
         <div>
-          <h3>🚚 Quản lý nguồn lực</h3>
+          <h3>
+            <IconTruck size={17} className="heading-icon" />
+            Quản lý nguồn lực
+          </h3>
           <p className="ai-sub">Tỷ lệ lấp đầy hub và trạng thái đội xe — minh họa từ số đơn đang xử lý.</p>
         </div>
       </div>
@@ -30,7 +34,11 @@ export default function CapacityPanel({ orders }) {
             <div className="capacity-row" key={c.hub}>
               <span className="capacity-hub-name">
                 {c.hub}
-                {c.secure && <span className="capacity-secure" title="Hub an ninh cao">🔒</span>}
+                {c.secure && (
+                  <span className="capacity-secure" title="Hub an ninh cao">
+                    <IconLock size={11} />
+                  </span>
+                )}
               </span>
               <div className="capacity-bar-wrap">
                 <div

@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { generateForecast } from "@/lib/data";
+import { IconTrendUp } from "@/components/icons";
 
 const W = 640;
 const H = 180;
@@ -31,8 +32,14 @@ export default function ForecastChart({ baseVolume }) {
     <div className="panel">
       <div className="panel-head">
         <div>
-          <h3>📈 Dự báo lưu lượng 7 ngày tới</h3>
-          <p className="ai-sub">AI dự báo (mô phỏng) — hỗ trợ chủ động sắp xếp xe và nhân lực.</p>
+          <h3>
+            <IconTrendUp size={17} className="heading-icon" />
+            Dự báo lưu lượng 7 ngày tới
+          </h3>
+          <p className="ai-sub">
+            Ước tính theo xu hướng vận hành gần đây — hỗ trợ chủ động sắp xếp xe và
+            nhân lực.
+          </p>
         </div>
       </div>
 

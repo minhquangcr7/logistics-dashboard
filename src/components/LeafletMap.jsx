@@ -173,7 +173,7 @@ export default function LeafletMap({
         const pct = capByHub[h.name];
         marker.bindPopup(
           `<div style="font-size:13px;line-height:1.6;min-width:170px">
-            <b>${h.name}</b>${h.secure ? ' <span style="color:#f5a524">🔒 An ninh cao</span>' : ""}
+            <b>${h.name}</b>${h.secure ? ' <span style="color:#f5a524;font-size:11px;letter-spacing:.3px">· AN NINH CAO</span>' : ""}
             <br/>Diện tích: ${h.area} · ${h.gates} cổng chia
             <br/>Công suất: ${h.dailyCapacity}${h.real ? ' <i style="color:#3fb950">(số liệu thật)</i>' : ""}
             ${h.robotSpeed ? `<br/>Robot phân loại: ${h.robotSpeed}` : ""}
