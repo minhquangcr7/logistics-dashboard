@@ -159,50 +159,91 @@ function reconcileLate(orders) {
   });
 }
 
-// Tạo ~14 đơn hàng mẫu ban đầu.
+const INITIAL_ORDER_COUNT = 15;
+const TARGET_LATE_MIN = 4;
+const TARGET_LATE_MAX = 6;
+
+function buildSeedOrder(status) {
+  const route = randomRoute();
+  // Giờ nhận đơn lùi ngẫu nhiên 1-48 giờ trước khi mở trang (không phải "vừa
+  // tạo ngay bây giờ") — mốc cam kết tính từ đây, nên 1 số đơn tự nhiên đã
+  // vượt cam kết ngay khi khởi tạo.
+  const createdAt = Date.now() - (1 + Math.random() * 47) * 3600 * 1000;
+  return {
+    id: randomOrderId(),
+    customer: randomFrom(CUSTOMER_NAMES),
+    route,
+    status,
+    location: randomFrom(LOCATIONS),
+    updated: nowTime(),
+    deadline: computeDeadline(route, createdAt),
+    createdAt,
+    // Đơn seed ở trạng thái "done" coi như đã hoàn tất không lâu sau khi tạo.
+    doneAt: status === "done" ? createdAt : null,
+    cargoType: randomCargoType(),
+    delayReason: null,
+    delayCategory: null,
+    delayEta: null,
+  };
+}
+
+// Tạo ~14-15 đơn hàng mẫu ban đầu, giữ khoảng 4-6 đơn trễ hạn (tự nhiên phát
+// sinh từ việc createdAt ngẫu nhiên đã vượt mốc cam kết) bằng cách thử lại
+// toàn bộ lô nếu số đơn trễ nằm ngoài khoảng mong muốn — mỗi lần thử vẫn rút
+// createdAt ngẫu nhiên trong đúng khoảng 1-48 giờ, không nắn phân phối.
 export function generateOrders() {
-  const statuses = [
-    "received",
-    "pickup",
-    "transit",
-    "transit",
-    "delivering",
-    "done",
-    "done",
-  ];
-  const orders = [];
-  for (let i = 0; i < 14; i++) {
-    const status = randomFrom(statuses);
-    const route = randomRoute();
+  const statuses = ["received", "pickup", "transit", "transit", "delivering", "done", "done"];
 
-    // Giờ nhận đơn giả lập trong quá khứ, tỉ lệ với thời gian cam kết dự
-    // kiến của tuyến đó — tạo độ trải đều các mức đếm ngược SLA khi khởi tạo.
-    const [a, b] = route.split(" → ");
-    const dist = getDistance(a, b) ?? 800;
-    const template = getRouteTemplate(a, b);
-    const commitHours = dist / TRADITIONAL_SPEED + template.traditional.length * TRANSSHIP_STOP_HOURS;
-    const createdAt = Date.now() - Math.random() * 1.4 * commitHours * 3600 * 1000;
+  let orders;
+  let lateCount;
+  let attempts = 0;
+  do {
+    orders = reconcileLate(
+      Array.from({ length: INITIAL_ORDER_COUNT }, () => buildSeedOrder(randomFrom(statuses)))
+    );
+    lateCount = orders.filter((o) => o.status === "late").length;
+    attempts++;
+  } while (attempts < 300 && (lateCount < TARGET_LATE_MIN || lateCount > TARGET_LATE_MAX));
 
-    orders.push({
-      id: randomOrderId(),
-      customer: randomFrom(CUSTOMER_NAMES),
-      route,
-      status,
-      location: randomFrom(LOCATIONS),
-      updated: nowTime(),
-      deadline: computeDeadline(route, createdAt),
-      cargoType: randomCargoType(),
-      delayReason: null,
-      delayCategory: null,
-      delayEta: null,
-    });
-  }
-  return reconcileLate(orders);
+  return orders;
+}
+
+// Thêm 1 đơn mới "Đã tiếp nhận" và xoá đơn "Đã giao" lâu nhất — giữ tổng số
+// đơn ổn định (~14-15) nhưng đảm bảo luôn có pha trộn đủ trạng thái, mô
+// phỏng hệ thống vận hành liên tục (đơn mới vào liên tục, đơn cũ hoàn tất).
+function replenish(orders) {
+  const route = randomRoute();
+  const createdAt = Date.now();
+  const fresh = {
+    id: randomOrderId(),
+    customer: randomFrom(CUSTOMER_NAMES),
+    route,
+    status: "received",
+    location: randomFrom(LOCATIONS),
+    updated: nowTime(),
+    deadline: computeDeadline(route, createdAt),
+    createdAt,
+    doneAt: null,
+    cargoType: randomCargoType(),
+    delayReason: null,
+    delayCategory: null,
+    delayEta: null,
+  };
+
+  const doneOrders = orders.filter((o) => o.status === "done");
+  if (doneOrders.length === 0) return [...orders, fresh];
+
+  const oldestDone = doneOrders.reduce((oldest, o) =>
+    (o.doneAt ?? 0) < (oldest.doneAt ?? 0) ? o : oldest
+  );
+
+  return [...orders.filter((o) => o.id !== oldestDone.id), fresh];
 }
 
 // Mỗi 4 giây: (1) tự động chuyển "late" cho đơn đã quá cam kết (mục 4.6),
 // (2) tiến 1 đơn ngẫu nhiên chưa hoàn tất/chưa trễ sang trạng thái kế tiếp
-// (mục 4.3).
+// (mục 4.3), (3) nếu đơn đó vừa "Đã giao" thì thay mới 1 đơn để danh sách
+// không hội tụ dần về toàn "Đã giao".
 export function advanceOneOrder(orders) {
   let next = reconcileLate(orders);
 
@@ -212,17 +253,21 @@ export function advanceOneOrder(orders) {
   const target = randomFrom(candidates);
   const idx = STATUS_FLOW.indexOf(target.status);
   const newStatus = STATUS_FLOW[Math.min(idx + 1, STATUS_FLOW.length - 1)];
+  const becameDone = newStatus === "done";
 
-  return next.map((o) =>
+  next = next.map((o) =>
     o.id === target.id
       ? {
           ...o,
           status: newStatus,
-          location: newStatus === "done" ? "Đã giao thành công" : randomFrom(LOCATIONS),
+          location: becameDone ? "Đã giao thành công" : randomFrom(LOCATIONS),
           updated: nowTime(),
+          doneAt: becameDone ? Date.now() : o.doneAt,
         }
       : o
   );
+
+  return becameDone ? replenish(next) : next;
 }
 
 // --- KPI tính từ danh sách đơn (mục 3.1) ---
