@@ -2,6 +2,7 @@
 
 import { useState, useMemo, Fragment } from "react";
 import { FILTERS, slaStatus, CARGO_TYPE_META, computeDelayStats } from "@/lib/data";
+import { exportOrdersCsv } from "@/lib/exportCsv";
 import StatusPill from "@/components/StatusPill";
 
 const COLUMNS = [
@@ -118,7 +119,20 @@ export default function OrdersView({ orders }) {
       <div className="panel">
         <div className="panel-head">
           <h3>Danh sách đơn hàng</h3>
-          <span className="live-dot">● cập nhật mỗi 4s</span>
+          <div className="panel-head-actions">
+            <span className="live-dot">● cập nhật mỗi 4s</span>
+            <button
+              className="chip export-btn"
+              onClick={() =>
+                exportOrdersCsv(
+                  filtered,
+                  `don-hang-${new Date().toISOString().slice(0, 10)}.csv`
+                )
+              }
+            >
+              ⬇ Xuất báo cáo (Excel)
+            </button>
+          </div>
         </div>
         <div className="table-scroll">
           <table className="table">

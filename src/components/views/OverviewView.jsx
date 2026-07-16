@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import {
   computeKpis,
   countByHub,
+  computeHubCapacity,
   distinctRoutes,
   generateAiAlerts,
   CARGO_TYPE_META,
@@ -12,6 +13,8 @@ import {
 } from "@/lib/data";
 import StatusPill from "@/components/StatusPill";
 import AiDecisionCard from "@/components/AiDecisionCard";
+import CapacityPanel from "@/components/CapacityPanel";
+import ForecastChart from "@/components/ForecastChart";
 
 const LeafletMap = dynamic(() => import("@/components/LeafletMap"), {
   ssr: false,
@@ -22,6 +25,7 @@ export default function OverviewView({ orders }) {
   const kpi = computeKpis(orders);
   const recent = orders.slice(0, 6);
   const hubCounts = useMemo(() => countByHub(orders), [orders]);
+  const hubCapacity = useMemo(() => computeHubCapacity(orders), [orders]);
   const routes = useMemo(() => distinctRoutes(orders), [orders]);
   const alerts = useMemo(() => generateAiAlerts(orders), [orders]);
 
@@ -60,6 +64,12 @@ export default function OverviewView({ orders }) {
           </div>
         ))}
       </div>
+
+      {/* Quản lý nguồn lực */}
+      <CapacityPanel orders={orders} />
+
+      {/* Dự báo lưu lượng 7 ngày */}
+      <ForecastChart baseVolume={kpi.total} />
 
       {/* AI Decision Support */}
       <AiDecisionCard alerts={alerts} />
@@ -102,6 +112,7 @@ export default function OverviewView({ orders }) {
           <LeafletMap
             hubs={HUBS}
             hubCounts={hubCounts}
+            hubCapacity={hubCapacity}
             routes={routes}
             flowDots={flowDots}
             height={280}

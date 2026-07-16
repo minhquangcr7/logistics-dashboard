@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import dynamic from "next/dynamic";
-import { HUBS, computeRouting, CARGO_TYPES } from "@/lib/data";
+import { HUBS, CARGO_TYPES } from "@/lib/data";
+import { planRoute } from "@/lib/routing";
+import PlaceSearch from "@/components/PlaceSearch";
 
 const LeafletMap = dynamic(() => import("@/components/LeafletMap"), {
   ssr: false,
@@ -14,75 +16,113 @@ function formatVnd(n) {
 }
 
 export default function RoutingView() {
-  const [from, setFrom] = useState(null);
+  const [from, setFrom] = useState(null); // { name, lat, lng, isHub }
   const [to, setTo] = useState(null);
   const [cargo, setCargo] = useState("normal");
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);
 
+  // Click hub trên bản đồ = lối tắt chọn điểm (thay vì phải gõ tìm kiếm).
   function handleHubClick(hub) {
     setError(null);
-    if (!from || (to && hub.name !== from)) {
-      // Bắt đầu lựa chọn mới hoặc chọn điểm đến.
-      if (!from) {
-        setFrom(hub.name);
-        setTo(null);
-        setResult(null);
-        return;
-      }
+    const point = { name: hub.name, lat: hub.lat, lng: hub.lng, isHub: true };
+    if (!from) {
+      setFrom(point);
+      setResult(null);
+      return;
     }
-    if (hub.name === from) {
-      // Click lại điểm đã chọn làm điểm đi -> reset.
+    if (from.name === hub.name) {
       setFrom(null);
       setTo(null);
       setResult(null);
       return;
     }
     if (!to) {
-      setTo(hub.name);
+      setTo(point);
       return;
     }
-    // Cả 2 đã chọn, click hub mới -> coi như chọn lại điểm đi.
-    setFrom(hub.name);
+    setFrom(point);
     setTo(null);
     setResult(null);
   }
 
-  function findRoute() {
+  function pickFrom(place) {
+    setFrom({ ...place, isHub: false });
+    setResult(null);
+    setError(null);
+  }
+
+  function pickTo(place) {
+    setTo({ ...place, isHub: false });
+    setResult(null);
+    setError(null);
+  }
+
+  async function findRoute() {
     setError(null);
     if (!from || !to) {
-      setError("Vui lòng chọn cả điểm lấy hàng và điểm giao hàng trên bản đồ.");
+      setError("Vui lòng chọn cả điểm lấy hàng và điểm giao hàng.");
       return;
     }
-    const r = computeRouting(from, to, cargo);
-    if (!r) {
-      setResult(null);
-      setError("Chưa có dữ liệu khoảng cách cho cặp thành phố này.");
-      return;
+    setLoading(true);
+    setResult(null);
+    try {
+      const r = await planRoute(from, to, cargo);
+      setResult(r);
+    } catch {
+      setError("Không tính được tuyến, vui lòng thử lại.");
+    } finally {
+      setLoading(false);
     }
-    setResult(r);
   }
+
+  const freeMarkers = [
+    from && !from.isHub ? { ...from, role: "from" } : null,
+    to && !to.isHub ? { ...to, role: "to" } : null,
+  ].filter(Boolean);
+
+  const selected = {
+    from: from?.isHub ? from.name : undefined,
+    to: to?.isHub ? to.name : undefined,
+  };
 
   return (
     <div className="view">
       <div className="panel">
         <div className="panel-head">
-          <h3>Chọn điểm trên bản đồ</h3>
+          <h3>Chọn điểm lấy hàng &amp; giao hàng</h3>
         </div>
+
+        <div className="place-search-row">
+          <PlaceSearch
+            label="📍 Điểm lấy hàng"
+            placeholder="Nhập địa chỉ, tên đường, thành phố…"
+            value={from}
+            onSelect={pickFrom}
+            accentColor="var(--accent)"
+          />
+          <PlaceSearch
+            label="📍 Điểm giao hàng"
+            placeholder="Nhập địa chỉ, tên đường, thành phố…"
+            value={to}
+            onSelect={pickTo}
+            accentColor="var(--blue)"
+          />
+        </div>
+
+        <p className="footnote" style={{ marginTop: 0 }}>
+          Có thể gõ bất kỳ địa chỉ nào ở Việt Nam, hoặc bấm nhanh vào 1 hub trên bản đồ
+          bên dưới. Click vào hub để xem thông số kỹ thuật.
+        </p>
+
         <LeafletMap
           hubs={HUBS}
           onHubClick={handleHubClick}
-          selected={{ from, to }}
+          selected={selected}
+          freeMarkers={freeMarkers}
           height={300}
         />
-        <div className="routing-picked">
-          <span>
-            Điểm lấy hàng: <strong className="accent-text">{from || "— chưa chọn —"}</strong>
-          </span>
-          <span>
-            Điểm giao hàng: <strong style={{ color: "var(--blue)" }}>{to || "— chưa chọn —"}</strong>
-          </span>
-        </div>
 
         <div className="routing-form">
           <label>
@@ -93,8 +133,8 @@ export default function RoutingView() {
               ))}
             </select>
           </label>
-          <button className="btn-primary routing-btn" onClick={findRoute}>
-            Tìm tuyến tối ưu
+          <button className="btn-primary routing-btn" onClick={findRoute} disabled={loading}>
+            {loading ? "Đang tính tuyến đường thật…" : "Tìm tuyến tối ưu"}
           </button>
         </div>
         {error && <div className="auth-msg error inline-msg">{error}</div>}
@@ -102,6 +142,13 @@ export default function RoutingView() {
 
       {result && (
         <>
+          {!result.usedRealRoads && (
+            <div className="auth-msg error inline-msg">
+              Không kết nối được dịch vụ bản đồ đường thật lúc này — đang hiển thị ước
+              tính theo đường thẳng.
+            </div>
+          )}
+
           <div className="grid-2">
             <div className="route-card">
               <div className="route-tag route-tag-gray">Tuyến truyền thống</div>
@@ -155,10 +202,16 @@ export default function RoutingView() {
           <div className="panel">
             <div className="panel-head">
               <h3>Bản đồ minh họa tuyến kết quả</h3>
+              <span className="live-dot">
+                {result.usedRealRoads ? "● đường bộ thật (OSM)" : "● ước tính"}
+              </span>
             </div>
             <LeafletMap
               hubs={HUBS}
-              resultPaths={{ traditional: result.traditional.path, ai: result.ai.path }}
+              resultPaths={{
+                traditional: { coords: result.traditional.coords, real: result.traditional.real },
+                ai: { coords: result.ai.coords, real: result.ai.real },
+              }}
               height={320}
             />
           </div>
@@ -166,11 +219,12 @@ export default function RoutingView() {
       )}
 
       <p className="footnote">
-        Mô hình minh họa dựa trên logic hợp lý (tối ưu hub trung chuyển, giảm
-        quãng đường ~9%), <strong>không phải</strong> kết quả từ mô hình AI đã
-        huấn luyện. Khoảng cách giữa các thành phố dùng số thật (gần đúng). Chi phí
-        ước tính mang tính minh họa, dựa trên đơn giá vận tải phổ biến, không phải
-        bảng giá chính thức của Viettel Post.
+        Km/giờ lấy theo đường bộ thật qua OpenStreetMap (OSRM) khi có mạng; nếu dịch vụ
+        lỗi sẽ tự chuyển sang ước tính đường thẳng, có ghi chú rõ. Mô hình lựa chọn hub
+        trung chuyển và % tiết kiệm thời gian vẫn là minh họa dựa trên logic hợp lý,
+        không phải kết quả từ mô hình AI đã huấn luyện. Chi phí ước tính mang tính minh
+        họa, dựa trên đơn giá vận tải phổ biến, không phải bảng giá chính thức của
+        Viettel Post.
       </p>
     </div>
   );

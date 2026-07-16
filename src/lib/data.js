@@ -38,14 +38,74 @@ export const FILTERS = [
 ];
 
 // =====================================================================
-// 5 HUB — toạ độ địa lý thật (mục 3.3 / 7)
+// 5 HUB — toạ độ địa lý thật (mục 3.3 / 7) + thông số kỹ thuật.
+// TP.HCM dùng số liệu THẬT đã research (Tổ hợp chia chọn thông minh miền
+// Nam — mục 9.2, có nguồn). 4 hub còn lại là quy mô khu vực GIẢ LẬP hợp lý.
+// demoCapacity: ngưỡng số đơn đồng thời để tính % lấp đầy minh hoạ trên
+// dashboard (KHÔNG phải công suất thật/ngày — 2 chỉ số khác nhau, không gộp).
 // =====================================================================
 export const HUBS = [
-  { id: "hn", name: "Hà Nội", lat: 21.0285, lng: 105.8542, secure: false },
-  { id: "hp", name: "Hải Phòng", lat: 20.8449, lng: 106.6881, secure: false },
-  { id: "dn", name: "Đà Nẵng", lat: 16.0544, lng: 108.2022, secure: true },
-  { id: "hcm", name: "TP.HCM", lat: 10.8231, lng: 106.6297, secure: true },
-  { id: "ct", name: "Cần Thơ", lat: 10.0452, lng: 105.7469, secure: false },
+  {
+    id: "hn",
+    name: "Hà Nội",
+    lat: 21.0285,
+    lng: 105.8542,
+    secure: false,
+    area: "8.000 m²",
+    gates: 220,
+    dailyCapacity: "~400.000 bưu phẩm/ngày",
+    real: false,
+    demoCapacity: 11,
+  },
+  {
+    id: "hp",
+    name: "Hải Phòng",
+    lat: 20.8449,
+    lng: 106.6881,
+    secure: false,
+    area: "5.500 m²",
+    gates: 150,
+    dailyCapacity: "~250.000 bưu phẩm/ngày",
+    real: false,
+    demoCapacity: 9,
+  },
+  {
+    id: "dn",
+    name: "Đà Nẵng",
+    lat: 16.0544,
+    lng: 108.2022,
+    secure: true,
+    area: "6.500 m²",
+    gates: 180,
+    dailyCapacity: "~300.000 bưu phẩm/ngày",
+    real: false,
+    demoCapacity: 10,
+  },
+  {
+    id: "hcm",
+    name: "TP.HCM",
+    lat: 10.8231,
+    lng: 106.6297,
+    secure: true,
+    area: "20.000 m²",
+    gates: 1000,
+    dailyCapacity: "2 triệu bưu phẩm/ngày (mở rộng đến 4 triệu)",
+    robotSpeed: "2 m/s",
+    real: true,
+    demoCapacity: 13,
+  },
+  {
+    id: "ct",
+    name: "Cần Thơ",
+    lat: 10.0452,
+    lng: 105.7469,
+    secure: false,
+    area: "4.500 m²",
+    gates: 120,
+    dailyCapacity: "~180.000 bưu phẩm/ngày",
+    real: false,
+    demoCapacity: 9,
+  },
 ];
 
 const CITIES_FOR_ROUTE = HUBS.map((h) => h.name);
@@ -350,6 +410,83 @@ export function countByHub(orders) {
   return counts;
 }
 
+// Toạ độ gần nhất (đường chim bay) trong 5 hub — dùng làm điểm trung chuyển
+// khi người dùng chọn điểm lấy/giao hàng bất kỳ (không nhất thiết là hub).
+export function nearestHub(point) {
+  let best = null;
+  let bestDist = Infinity;
+  for (const h of HUBS) {
+    const dLat = h.lat - point.lat;
+    const dLng = h.lng - point.lng;
+    const d = dLat * dLat + dLng * dLng; // so sánh bình phương khoảng cách là đủ
+    if (d < bestDist) {
+      bestDist = d;
+      best = h;
+    }
+  }
+  return best;
+}
+
+// =====================================================================
+// QUẢN LÝ NGUỒN LỰC — Capacity & Fleet (bổ sung theo góp ý)
+// =====================================================================
+
+// Tỷ lệ lấp đầy từng hub — MINH HOẠ, tính trên số đơn đồng thời đang đi qua
+// hub so với ngưỡng demoCapacity (khác với dailyCapacity là số liệu thật/ngày
+// hiển thị riêng trong popup thông số hub — không gộp 2 chỉ số này).
+export function computeHubCapacity(orders) {
+  const counts = countByHub(orders);
+  return HUBS.map((h) => {
+    const count = counts[h.name] ?? 0;
+    const pct = Math.min(100, Math.round((count / h.demoCapacity) * 100));
+    return { hub: h.name, count, pct, secure: h.secure };
+  });
+}
+
+const TOTAL_FLEET_SIZE = 24; // tổng số xe mô phỏng
+
+// Trạng thái đội xe — suy ra từ số đơn đang thực sự di chuyển (mỗi đơn
+// pickup/transit/delivering coi như chiếm dụng 1 xe).
+export function computeFleetStatus(orders) {
+  const running = orders.filter((o) =>
+    ["pickup", "transit", "delivering"].includes(o.status)
+  ).length;
+  const active = Math.min(running, TOTAL_FLEET_SIZE);
+  return {
+    total: TOTAL_FLEET_SIZE,
+    running: active,
+    idle: TOTAL_FLEET_SIZE - active,
+    pct: Math.round((active / TOTAL_FLEET_SIZE) * 100),
+  };
+}
+
+// =====================================================================
+// DỰ BÁO LƯU LƯỢNG 7 NGÀY — mô phỏng có xu hướng + chu kỳ tuần (bổ sung mới)
+// =====================================================================
+const WEEKDAY_LABELS = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
+// Hệ số theo ngày trong tuần: cuối tuần (T7, CN) lưu lượng thấp hơn.
+const WEEKDAY_FACTOR = [0.75, 1.0, 1.05, 1.1, 1.08, 1.15, 0.85];
+
+export function generateForecast(baseVolume) {
+  const base = Math.max(baseVolume, 8);
+  const today = new Date();
+  const points = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(today);
+    d.setDate(d.getDate() + i + 1);
+    const dow = d.getDay();
+    const trend = 1 + i * 0.015; // xu hướng tăng nhẹ theo tuần
+    const noise = 0.94 + Math.random() * 0.12;
+    const value = Math.round(base * WEEKDAY_FACTOR[dow] * trend * noise);
+    points.push({
+      label: WEEKDAY_LABELS[dow],
+      date: d.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" }),
+      value,
+    });
+  }
+  return points;
+}
+
 // Danh sách tuyến (cặp hub) khác nhau đang có đơn — dùng để vẽ đường màu cố
 // định trên bản đồ (mục 3.3).
 export function distinctRoutes(orders) {
@@ -502,7 +639,7 @@ const ROUTE_TEMPLATES = {
   "Đà Nẵng-Cần Thơ": { traditional: ["TP.HCM"], ai: [] },
 };
 
-function getRouteTemplate(a, b) {
+export function getRouteTemplate(a, b) {
   const direct = ROUTE_TEMPLATES[`${a}-${b}`];
   if (direct) return direct;
   const reverse = ROUTE_TEMPLATES[`${b}-${a}`];
@@ -516,7 +653,7 @@ function getRouteTemplate(a, b) {
   return { traditional: ["Đà Nẵng"], ai: [] };
 }
 
-const QUALITATIVE_BENEFITS = [
+export const QUALITATIVE_BENEFITS = [
   "✅ Tránh khung giờ cao điểm tại nội đô các thành phố lớn",
   "✅ Giảm số lần bốc dỡ hàng hóa → giảm rủi ro hư hỏng/thất lạc",
   "✅ Ưu tiên hub có công suất xử lý còn trống, tránh dồn ứ",
@@ -524,126 +661,13 @@ const QUALITATIVE_BENEFITS = [
   "✅ Rút ngắn thời gian chờ trung chuyển tại các hub trung gian",
 ];
 
-const CARGO_TYPES = [
+export const CARGO_TYPES = [
   { key: "normal", label: "Hàng thường" },
   { key: "fragile", label: "Hàng dễ vỡ" },
   { key: "valuable", label: "Hàng giá trị cao" },
 ];
-export { CARGO_TYPES };
 
-const COST_PARAMS = { pricePerKm: 10000, transshipFee: 200000 };
-
-// Mô phỏng có căn cứ: tuyến AI giảm ~9% quãng đường + tốc độ TB nhỉnh hơn do
-// ít điểm dừng -> tiết kiệm thời gian rơi vào ~10-20% (đặc tả mục 5.3).
-export function computeRouting(a, b, cargoType = "normal") {
-  const base = getDistance(a, b);
-  if (base == null) return null;
-
-  const traditionalSpeed = 45;
-  let aiSpeed = 52;
-
-  const template = getRouteTemplate(a, b);
-  let aiHubs = template.ai;
-  let aiKmFactor = 0.91;
-
-  // Loại hàng ảnh hưởng tới cách chọn tuyến AI (mục 5.8).
-  let cargoNote = null;
-  if (cargoType === "fragile") {
-    // Ưu tiên ít điểm trung chuyển nhất, chấp nhận thời gian nhỉnh hơn.
-    aiHubs = aiHubs.slice(0, Math.max(0, aiHubs.length - 1));
-    aiSpeed = 49;
-    cargoNote = "Ưu tiên giảm số lần bốc dỡ để hạn chế hư hỏng";
-  } else if (cargoType === "valuable") {
-    const secureNames = HUBS.filter((h) => h.secure).map((h) => h.name);
-    const hasSecure = aiHubs.some((h) => secureNames.includes(h));
-    if (!hasSecure && secureNames.length) {
-      aiHubs = [secureNames[0]];
-    }
-    cargoNote = "Ưu tiên tuyến qua hub có kiểm soát an ninh chặt chẽ";
-  }
-
-  const aiKm = Math.round(base * aiKmFactor);
-  const tradHours = base / traditionalSpeed;
-  const aiHours = aiKm / aiSpeed;
-  const savePct = Math.round(((tradHours - aiHours) / tradHours) * 100);
-
-  const tradCost =
-    base * COST_PARAMS.pricePerKm + template.traditional.length * COST_PARAMS.transshipFee;
-  const aiCost = aiKm * COST_PARAMS.pricePerKm + aiHubs.length * COST_PARAMS.transshipFee;
-
-  const tradPath = [a, ...template.traditional, b];
-  const aiPath = [a, ...aiHubs, b];
-
-  const benefits = QUALITATIVE_BENEFITS.slice(0, 3 + Math.floor(Math.random() * 2));
-
-  return {
-    traditional: {
-      km: base,
-      hours: tradHours.toFixed(1),
-      hubs: template.traditional.length,
-      path: tradPath,
-      cost: Math.round(tradCost),
-      timeline: buildTimeline(tradPath, base, traditionalSpeed),
-    },
-    ai: {
-      km: aiKm,
-      hours: aiHours.toFixed(1),
-      hubs: aiHubs.length,
-      path: aiPath,
-      cost: Math.round(aiCost),
-      timeline: buildTimeline(aiPath, aiKm, aiSpeed),
-      benefits,
-    },
-    savePct,
-    cargoNote,
-  };
-}
-
-// Tính khoảng cách thật cho từng đoạn liền kề trong lộ trình; đoạn nào không
-// có sẵn trong bảng tra cứu thì chia đều phần km còn lại cho các đoạn đó.
-function segmentDistances(path, totalKm) {
-  const segments = Math.max(path.length - 1, 1);
-  const known = [];
-  let knownSum = 0;
-  let unknownCount = 0;
-  for (let i = 0; i < segments; i++) {
-    const d = getDistance(path[i], path[i + 1]);
-    known.push(d);
-    if (d != null) knownSum += d;
-    else unknownCount++;
-  }
-  const remaining = Math.max(totalKm - knownSum, 0);
-  const fallback = unknownCount > 0 ? remaining / unknownCount : 0;
-  return known.map((d) => d ?? fallback);
-}
-
-function buildTimeline(path, totalKm, speed) {
-  const dists = segmentDistances(path, totalKm);
-  const stopMinutes = 30;
-
-  let cursor = new Date();
-  cursor.setMinutes(Math.round(cursor.getMinutes() / 10) * 10, 0, 0);
-
-  const stops = [{ label: `Xuất phát từ ${path[0]}`, time: new Date(cursor) }];
-
-  for (let i = 1; i < path.length; i++) {
-    const travelMin = (dists[i - 1] / speed) * 60;
-    cursor = new Date(cursor.getTime() + travelMin * 60000);
-    const isLast = i === path.length - 1;
-    stops.push({
-      label: isLast
-        ? `Đến ${path[i]} (hoàn tất)`
-        : `Đến ${path[i]} (trung chuyển, dừng ~${stopMinutes} phút)`,
-      time: new Date(cursor),
-    });
-    if (!isLast) cursor = new Date(cursor.getTime() + stopMinutes * 60000);
-  }
-
-  return stops.map((s) => ({
-    label: s.label,
-    time: s.time.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }),
-  }));
-}
+export const COST_PARAMS = { pricePerKm: 10000, transshipFee: 200000 };
 
 // =====================================================================
 // SO SÁNH TRƯỚC / SAU CHUYỂN ĐỔI SỐ (mục 5B) — SỐ THẬT, quy ước Trước = 100%
