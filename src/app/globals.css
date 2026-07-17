@@ -909,12 +909,12 @@ a {
   border-radius: 8px;
   width: 28px;
   height: 28px;
-  font-size: 13px;
+  color: var(--muted);
   cursor: pointer;
   display: grid;
   place-items: center;
 }
-.action-btn:hover { border-color: var(--accent); }
+.action-btn:hover { border-color: var(--accent); color: var(--accent); }
 .action-btn:disabled { opacity: 0.4; cursor: default; }
 .action-badges { display: flex; flex-direction: column; gap: 3px; margin-top: 6px; }
 .badge {
