@@ -123,6 +123,7 @@ export default function RoutingView() {
           selected={selected}
           freeMarkers={freeMarkers}
           height={300}
+          tileStyle="voyager"
         />
 
         <div className="routing-form">
@@ -218,6 +219,7 @@ export default function RoutingView() {
                 ai: { coords: result.ai.coords, real: result.ai.real },
               }}
               height={320}
+              tileStyle="voyager"
             />
           </div>
         </>

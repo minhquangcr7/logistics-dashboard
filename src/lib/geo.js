@@ -52,24 +52,48 @@ export function haversineKm(a, b) {
 const DETOUR_FACTOR = 1.3;
 const FALLBACK_SPEED_KMH = 45;
 
+// Server OSRM công cộng chặn/từ chối (429) nếu nhận nhiều request cùng lúc —
+// 1 tuyến có thể có nhiều chặng (traditional + AI chạy song song), nên phải
+// xếp hàng gọi lần lượt, cách nhau 1 khoảng nhỏ, thay vì bắn hết cùng lúc.
+let osrmQueue = Promise.resolve();
+const OSRM_MIN_GAP_MS = 350;
+
+function enqueueOsrm(task) {
+  const run = osrmQueue.then(() => task());
+  osrmQueue = run.catch(() => {}).then(
+    () => new Promise((resolve) => setTimeout(resolve, OSRM_MIN_GAP_MS))
+  );
+  return run;
+}
+
+async function requestOsrmLeg(from, to) {
+  const url = `${OSRM_URL}/${from.lng},${from.lat};${to.lng},${to.lat}?overview=full&geometries=geojson`;
+  const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
+  if (res.status === 429) throw new Error("rate-limited");
+  if (!res.ok) return null;
+  const data = await res.json();
+  const route = data.routes?.[0];
+  if (!route) return null;
+  return {
+    km: route.distance / 1000,
+    minutes: route.duration / 60,
+    coords: route.geometry.coordinates.map(([lng, lat]) => [lat, lng]),
+    real: true,
+  };
+}
+
 // 1 chặng đường bộ thật giữa 2 điểm {lat,lng}. Trả về null nếu lỗi (gọi nơi
-// dùng tự fallback đường thẳng).
+// dùng tự fallback đường thẳng). Có 1 lần thử lại nếu bị giới hạn tần suất.
 export async function fetchRoadLeg(from, to) {
   try {
-    const url = `${OSRM_URL}/${from.lng},${from.lat};${to.lng},${to.lat}?overview=full&geometries=geojson`;
-    const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
-    if (!res.ok) return null;
-    const data = await res.json();
-    const route = data.routes?.[0];
-    if (!route) return null;
-    return {
-      km: route.distance / 1000,
-      minutes: route.duration / 60,
-      coords: route.geometry.coordinates.map(([lng, lat]) => [lat, lng]),
-      real: true,
-    };
+    return await enqueueOsrm(() => requestOsrmLeg(from, to));
   } catch {
-    return null;
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 700));
+      return await enqueueOsrm(() => requestOsrmLeg(from, to));
+    } catch {
+      return null;
+    }
   }
 }
 

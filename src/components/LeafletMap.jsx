@@ -11,6 +11,20 @@ import { routeColor } from "@/lib/data";
 // - Định tuyến AI: chọn hub bằng click (lối tắt) hoặc hiện điểm tuỳ ý đã
 //   chọn qua thanh tìm kiếm (freeMarkers); vẽ tuyến theo toạ độ đường bộ
 //   thật (resultPaths.coords) khi có kết quả.
+// Bộ tile theo phong cách: "dark" (Tổng quan, tối giản) hoặc "voyager"
+// (Định tuyến AI — tile CARTO Voyager, miễn phí, không cần API key, có đủ
+// tên đường/nhãn địa danh nên nhìn thực tế gần giống Google Maps).
+const TILE_STYLES = {
+  dark: {
+    url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+    hubDefault: "#e6edf3",
+  },
+  voyager: {
+    url: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
+    hubDefault: "#1f2937",
+  },
+};
+
 export default function LeafletMap({
   hubs,
   hubCounts = {},
@@ -22,10 +36,12 @@ export default function LeafletMap({
   freeMarkers = null, // [{ name, lat, lng, role: 'from'|'to' }]
   resultPaths = null, // { traditional: {coords,real}, ai: {coords,real} }
   height = 320,
+  tileStyle = "dark", // "dark" | "voyager"
 }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const layerRef = useRef(null);
+  const tileLayerRef = useRef(null);
   const animCleanupRef = useRef(null);
   // Hub vừa được click — chọn điểm (đổi `selected`) khiến effect vẽ lại
   // toàn bộ marker chạy lại và popup vừa mở bị xoá theo; lưu lại đây để tự
@@ -51,8 +67,8 @@ export default function LeafletMap({
         attributionControl: false,
       });
 
-      L.tileLayer(
-        "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+      tileLayerRef.current = L.tileLayer(
+        TILE_STYLES[tileStyle].url,
         { subdomains: "abcd", maxZoom: 19 }
       ).addTo(map);
 
@@ -70,6 +86,13 @@ export default function LeafletMap({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Đổi kiểu tile khi prop tileStyle đổi (không cần khởi tạo lại map).
+  useEffect(() => {
+    if (tileLayerRef.current) {
+      tileLayerRef.current.setUrl(TILE_STYLES[tileStyle].url);
+    }
+  }, [tileStyle]);
 
   // Vẽ hub, đường tuyến (màu cố định), marker tuỳ ý và kết quả định tuyến.
   useEffect(() => {
@@ -157,7 +180,7 @@ export default function LeafletMap({
       hubs.forEach((h) => {
         const isFrom = selected.from === h.name;
         const isTo = selected.to === h.name;
-        const color = isFrom ? "#f5a524" : isTo ? "#388bfd" : "#e6edf3";
+        const color = isFrom ? "#f5a524" : isTo ? "#388bfd" : TILE_STYLES[tileStyle].hubDefault;
         const icon = L.divIcon({
           className: "",
           html: `<div style="
@@ -204,7 +227,7 @@ export default function LeafletMap({
     return () => {
       cancelled = true;
     };
-  }, [hubs, hubCounts, hubCapacity, routes, onHubClick, selected, freeMarkers, resultPaths]);
+  }, [hubs, hubCounts, hubCapacity, routes, onHubClick, selected, freeMarkers, resultPaths, tileStyle]);
 
   // Chấm động màu theo loại hàng (3-4 chấm, tách biệt hoàn toàn với màu tuyến).
   useEffect(() => {
