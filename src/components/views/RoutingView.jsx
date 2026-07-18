@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, memo } from "react";
 import dynamic from "next/dynamic";
 import { HUBS, CARGO_TYPES } from "@/lib/data";
 import { planRoute } from "@/lib/routing";
@@ -16,7 +16,7 @@ function formatVnd(n) {
   return n.toLocaleString("vi-VN") + "đ";
 }
 
-export default function RoutingView() {
+function RoutingView() {
   const [from, setFrom] = useState(null); // { name, lat, lng, isHub }
   const [to, setTo] = useState(null);
   const [cargo, setCargo] = useState("normal");
@@ -240,6 +240,12 @@ export default function RoutingView() {
     </div>
   );
 }
+
+// Không nhận prop nào từ Dashboard — memo để tránh bị render lại theo đồng hồ
+// real-time (tick mỗi giây) và tick đơn hàng (mỗi 4 giây) ở component cha,
+// vốn trước đây khiến bản đồ tự canh khung lại liên tục, đè mất thao tác
+// zoom tay của người dùng.
+export default memo(RoutingView);
 
 function Timeline({ stops, color }) {
   return (
