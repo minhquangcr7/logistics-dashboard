@@ -124,6 +124,8 @@ export default function RoutingView() {
           freeMarkers={freeMarkers}
           height={300}
           tileStyle="voyager"
+          fitMaxZoom={15}
+          scrollZoom
         />
 
         <div className="routing-form">
@@ -220,6 +222,8 @@ export default function RoutingView() {
               }}
               height={320}
               tileStyle="voyager"
+              fitMaxZoom={15}
+              scrollZoom
             />
           </div>
         </>

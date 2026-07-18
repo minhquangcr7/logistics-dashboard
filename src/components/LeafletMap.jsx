@@ -37,6 +37,8 @@ export default function LeafletMap({
   resultPaths = null, // { traditional: {coords,real}, ai: {coords,real} }
   height = 320,
   tileStyle = "dark", // "dark" | "voyager"
+  fitMaxZoom = 8, // zoom tối đa khi tự canh khung theo các điểm/tuyến
+  scrollZoom = false, // cho phép cuộn chuột để zoom (bật ở Định tuyến AI)
 }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
@@ -63,7 +65,7 @@ export default function LeafletMap({
       const map = L.map(containerRef.current, {
         center: [16.5, 107.5],
         zoom: 5,
-        scrollWheelZoom: false,
+        scrollWheelZoom: scrollZoom,
         attributionControl: false,
       });
 
@@ -216,10 +218,14 @@ export default function LeafletMap({
 
       if (allBounds.length > 1) {
         try {
-          mapRef.current.fitBounds(allBounds, { padding: [24, 24], maxZoom: 8 });
+          mapRef.current.fitBounds(allBounds, { padding: [24, 24], maxZoom: fitMaxZoom });
         } catch {
           // bounds không hợp lệ (VD toàn trùng 1 điểm) — bỏ qua, giữ view mặc định
         }
+      } else if (allBounds.length === 1) {
+        // Chỉ mới chọn 1 điểm — zoom hẳn vào đó để thấy rõ đường xá xung quanh
+        // thay vì giữ nguyên góc nhìn toàn quốc mặc định.
+        mapRef.current.setView(allBounds[0], Math.min(fitMaxZoom, 14));
       }
 
       setTimeout(() => mapRef.current?.invalidateSize(), 50);
@@ -227,7 +233,7 @@ export default function LeafletMap({
     return () => {
       cancelled = true;
     };
-  }, [hubs, hubCounts, hubCapacity, routes, onHubClick, selected, freeMarkers, resultPaths, tileStyle]);
+  }, [hubs, hubCounts, hubCapacity, routes, onHubClick, selected, freeMarkers, resultPaths, tileStyle, fitMaxZoom]);
 
   // Chấm động màu theo loại hàng (3-4 chấm, tách biệt hoàn toàn với màu tuyến).
   useEffect(() => {
